@@ -23,7 +23,10 @@ class Gemma:
         )
     def encoder(self, text):
         return self.tokenizer(text, return_tensors='pt').to("cuda")
-        
+    
+    def tokenlen(self, text):
+        return len(self.tokenizer(text, return_tensors='pt').to("cuda")['input_ids'][0])   
+     
     def request(self, text ,max_output_tokens=256):
         try:  
             print(f"\nGenerating key points with gemma for the following text ...\n")
@@ -65,7 +68,7 @@ class Gemma:
             print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
             print(f"Max output tokens: {max_output_tokens}\n")
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=50, num_return_sequences=1)
+            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=256, num_return_sequences=1)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             generated_response = text.split("La conclusion des textes est:")[1]

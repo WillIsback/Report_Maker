@@ -25,6 +25,7 @@ With AI Report Maker, you can transform lengthy meetings into concise, easy-to-r
 - [Installation](#installation)
   - [Language Model Requirements and Specifications](#language-model-requirements-and-specifications)
 - [Usage](#usage)
+- [Evaluation](#evaluation)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -105,6 +106,15 @@ python main.py /path/to/your/audio/file --mode prod --llm gemma
 ```
 
 This will generate a report in markdown format in the `report` directory.
+
+## Evaluation
+
+
+There is **no metrics** to benchmark the result of the report generation. So a **website** is made as a platform for the **evaluation form**. The form automatically **collect responses and provide a way to view them**. Feel free to check the **online form: **https://eval-app.online/  to start rating the **Report Maker**
+
+**Manual Evaluation**: Have human evaluators rate the quality of the summaries. This can be time-consuming but can provide valuable insights into aspects like coherence and relevance that automated metrics might miss. 
+
+more details at [Evaluation_docs](Evaluation/readme.md).
 
 ## Contributing
 

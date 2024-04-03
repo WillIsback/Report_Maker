@@ -13,3 +13,4 @@ tqdm
 pydub
 sympy
 huggingface_hub
+pip install tiktoken

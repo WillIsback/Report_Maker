@@ -84,13 +84,10 @@ def process_dialogue(all_sentences, llm):
     sections = []
     speaker_transcription = ''
 
-    for sentence in all_sentences:
+    for sentence in tqdm(all_sentences, desc="Processing dialogue"):
         new_transcription = f"{speaker_transcription}\n{sentence['speaker']}: {sentence['text']}"
-        inputs = (llm.encoder(new_transcription))
-        encoded_length = len(inputs['input_ids'][0])
-        # print(f"Encoded length: {encoded_length}")
+        encoded_length = llm.tokenlen(new_transcription)
         if encoded_length > MAX_TOKENS - TOKENS_PADDING:
-            # print(f"\nGenerating summary for transcriptions: {speaker_transcription}")
             sub_summary = llm.request(speaker_transcription)
             sections.append({'summary': sub_summary})
             speaker_transcription = f"speaker: {sentence['speaker']}: {sentence['text']}"
@@ -98,7 +95,6 @@ def process_dialogue(all_sentences, llm):
             speaker_transcription = new_transcription
 
     if speaker_transcription:
-        # print(f"\nGenerating summary for transcriptions: {speaker_transcription}")
         sub_summary = llm.request(speaker_transcription)
         sections.append({'summary': sub_summary})
         
@@ -107,17 +103,16 @@ def process_dialogue(all_sentences, llm):
 def process_conclusion(overall_transcription, llm):
     overall_summary = ''
     chunks = ''
-    for section in overall_transcription:
+    for section in tqdm(overall_transcription, desc="Processing conclusion"):
         new_summary = f"{chunks} \n {section['summary']}"
-        inputs = llm.encoder(new_summary)
-        encoded_length = len(inputs['input_ids'][0])
+        encoded_length = llm.tokenlen(new_summary)
         if encoded_length > MAX_TOKENS - TOKENS_CHUNK:
             overall_summary += llm.summarize(chunks)
             chunks = section['summary']
         else:
             chunks = new_summary
     if chunks:
-        overall_summary += gemma.summarize(chunks)
+        overall_summary += llm.summarize(chunks)
     return overall_summary
 
 def Process_transcription_and_diarization(transcription_file, rttm_file, output_file, llm_model_name):
@@ -134,9 +129,11 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
         llm = Mistral(config['large_language_models']['mistral'])
     elif llm_model_name == 'gemma':
         llm = Gemma(config['large_language_models']['gemma'])
-
+    else:
+        llm = Gemma(config['large_language_models']['gemma'])
+        
     all_sentences = [{'text': sentence, 'timestamp': timestamp, 'speaker': find_speaker(timestamp, diarization)} 
-                     for sentence, timestamp in tqdm(sentences, desc="Processing sentences: ...") if find_speaker(timestamp, diarization) is not None]
+                     for sentence, timestamp in tqdm(sentences, desc="Processing all sentences") if find_speaker(timestamp, diarization) is not None]
 
     all_sentences.sort(key=lambda s: s['timestamp'])
 

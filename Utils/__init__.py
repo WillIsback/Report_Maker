@@ -6,3 +6,4 @@ from .gemma import Gemma
 from .gpt import GPT
 from .whisper import Whisper
 from .pyannote import Pyannote
+from .benchmark import plot

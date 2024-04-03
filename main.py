@@ -16,7 +16,7 @@ import platform
 import time
 import csv
 import yaml
-from Utils import preprocess_audio, Process_transcription_and_diarization, generate_report, Whisper, Pyannote
+from Utils import preprocess_audio, Process_transcription_and_diarization, generate_report, Whisper, Pyannote, plot
 
 def main(file_path, mode, llm_model_name):
     # Load the configuration file
@@ -53,7 +53,7 @@ def main(file_path, mode, llm_model_name):
     # combine transcription and diarization
     print("\nProcessing, combining transcription and diarization")
     process_start_time = time.time()
-    Process_transcription_and_diarization('report/log/transcription.json', 'report/log/diarization.rttm', 'report/log/output.json', llm_model_id)
+    Process_transcription_and_diarization('report/log/transcription.json', 'report/log/diarization.rttm', 'report/log/output.json', llm_model_name)
     process_end_time = time.time()
     process_time = process_end_time - process_start_time
 
@@ -64,7 +64,7 @@ def main(file_path, mode, llm_model_name):
     # Generate a report from the JSON data
     print("\nGenerating report from the JSON data")
     report_start_time = time.time()
-    generate_report(json_output, 'report/basic_report_output.md')
+    generate_report(json_output, f'report/{llm_model_name}_report_output.md')
     report_end_time = time.time()
     report_time = report_end_time - report_start_time
 
@@ -74,11 +74,12 @@ def main(file_path, mode, llm_model_name):
     if mode == 'dev':
         device = 'GPU' if torch.cuda.is_available() else 'CPU'
         device_info = platform.uname()
-        log_entry_label = f"{config['audio_processing_models']['whisper_model_id']}/{config['audio_processing_models']['pyannote_model_id']}/{config['large_language_models'][llm_model_id]}"
+        log_entry_label = f"{config['audio_processing_models']['whisper_model_id']},{config['audio_processing_models']['pyannote_model_id']},{llm_model_id}"
         log_audio_file = f"audio_file: {file_path}"
         with open('logs/benchmark.csv', 'a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([log_entry_label, log_audio_file , device, device_info, whisper_time, pyannote_time, process_time, report_time, total_time])
+        plot('logs/benchmark.csv')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process an audio file and generate a report.')
