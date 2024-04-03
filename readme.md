@@ -10,7 +10,7 @@ Here's a brief overview of how it works:
 
 3. **Annotated Transcription**: The transcriptions are combined with the speaker diarization to generate a full annotated transcription. This includes timestamps, speaker identities, and the transcribed text.
 
-4. **Sub-Summary Generation**: The dialogue is processed using a Language Model of the user's choice (`openai-GPT3.5`, `GEMMA`, `MISTRAL`). This generates a sub-summary for each speaker.
+4. **Sub-Summary Generation**: The dialogue is processed using a Language Model of the user's choice (`openai-GPT3.5`, `GEMMA`, `MISTRAL`, `BART`). This generates a sub-summary for each speaker.
 
 5. **Conclusion Generation**: The sub-summaries are further processed in the same Language Model to generate a comprehensive conclusion for the meeting.
 
@@ -65,7 +65,7 @@ graph TD;
 
 ### next:
 - Multilanguage support
-- Add more Language Models to generate sub-summary and conclusion
+- Add more Language Models to generate sub-summary and conclusion (**camembert** nlp model for french text seems promising)
 - Add a GUI to interact with the program
 - Automatic speaker naming and identification
 - Extraction of important moments of the meeting from the audio file
@@ -87,9 +87,11 @@ This project uses several language models, each with its own requirements and sp
 
 - **openai-GPT3.5-Turbo**: This model is used to process the dialogue and generate sub-summaries. Context window of X tokens. It is not open-source, This model is gated with openai credentials.
 
-- **GEMMA-7B/2B**: This model is used to process the sub-summary and generate a conclusion. Context window of X tokens. It is an open-source model and free tier but gated model via hugging face credentials.
+- **GEMMA-2B**: This model is used to process the sub-summary and generate a conclusion. Context window of X tokens. It is an open-source model and free tier but gated model via hugging face credentials.
 
 - **MISTRAL-7B**: This model is also used to process the sub-summary and generate a conclusion. Context window of 32768 tokens. It is open-source, and has a free tier available. This model is not gated.
+
+- **BART**: this is a summarize model made by facebook, it is open source, free. quite good but only handle english.
 
 Please refer to the official documentation of each model for more detailed information and instructions on how to use them.
 
@@ -101,8 +103,9 @@ Run the `main.py` script with your audio file as an argument.
 - `gpt` based on gpt-3.5-turbo **best** but not free.
 - `mistral` based on the quantinze 4b version of mistral-7b-instruct, **free and open source**. **long to compute**.
 - `gemma` based on gemma-2b-it, **fast but poorest performance**.
+- `bart` based on facebook/bart-large-cnn **fast and ok performance**
 ```bash
-python main.py /path/to/your/audio/file --mode prod --llm gemma
+python main.py /path/to/your/audio/file --mode prod --llm bart
 ```
 
 This will generate a report in markdown format in the `report` directory.
@@ -115,6 +118,7 @@ There is **no metrics** to benchmark the result of the report generation. So a *
 **Manual Evaluation**: Have human evaluators rate the quality of the summaries. This can be time-consuming but can provide valuable insights into aspects like coherence and relevance that automated metrics might miss. 
 
 more details at [Evaluation_docs](Evaluation/readme.md).
+latest evaluation result [Evaluation résult](Evaluation/evaluation.md)
 
 ## Contributing
 

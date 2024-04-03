@@ -2,31 +2,16 @@
 """
 @brief This module contains the functions to preprocess the text data before the report generation model can process it.
 """
-from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 from .mistral import Mistral
 from .gemma import Gemma
 from .gpt import GPT
+from .bert import Camembert, BART
 import json
 import spacy
 import datetime
 import yaml
 from tqdm import tqdm
 
-
-def summarize_text(text, max_length):
-    print(f"\nGenerating summary for the following text: \n")
-    model_name = "facebook/mbart-large-50-many-to-many-mmt"
-    tokenizer = MBart50TokenizerFast.from_pretrained(model_name)
-    model = MBartForConditionalGeneration.from_pretrained(model_name)
-
-    # encode the text
-    inputs = tokenizer(text, return_tensors="pt", max_length=max_length, truncation=True, padding='longest')
-
-    # generate summary
-    summary_ids = model.generate(inputs['input_ids'], num_beams=4, max_length=max_length, early_stopping=True)
-    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-
-    return summary
 
 def load_transcription(transcription_file):
     with open(transcription_file, 'r') as f:
@@ -75,10 +60,10 @@ def find_speaker(timestamp, diarization):
             return speaker
     return None
 
-MAX_TOKENS = 2048
+MAX_TOKENS = 512
 MARGINS = 64
-TOKENS_PADDING = 256 + MARGINS
-TOKENS_CHUNK = 256 + MARGINS
+TOKENS_PADDING = 0 + MARGINS
+TOKENS_CHUNK = 0 + MARGINS
 
 def process_dialogue(all_sentences, llm):
     sections = []
@@ -129,6 +114,10 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
         llm = Mistral(config['large_language_models']['mistral'])
     elif llm_model_name == 'gemma':
         llm = Gemma(config['large_language_models']['gemma'])
+    elif llm_model_name == 'camembert':
+        llm = Camembert(config['large_language_models']['camembert'])
+    elif llm_model_name == 'bart':
+        llm = BART(config['large_language_models']['bart'])
     else:
         llm = Gemma(config['large_language_models']['gemma'])
         
@@ -147,6 +136,9 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
         
         
 def generate_report(json_output, markdown_file):
+    with open(json_output, 'r') as f:
+        json_output = json.load(f)
+        
     with open(markdown_file, 'w') as f:
         # Write the title
         date = datetime.date.today().strftime("%d/%m/%Y")

@@ -6,12 +6,17 @@ import os
 
 def plot(logs_file_path='logs/benchmark.csv'):
     # Load the data from the CSV file
-    df = pd.read_csv(logs_file_path, names=['log_entry_label', 'log_audio_file', 'device', 'device_info', 'whisper_time', 'pyannote_time', 'process_time', 'report_time', 'total_time'])
-
-    # Split the log_entry_label into separate columns for each model
+    df = pd.read_csv(logs_file_path, names=['index', 'log_entry_label', 'log_audio_file', 'device', 'device_info', 'whisper_time', 'pyannote_time', 'process_time', 'report_time', 'total_time'])
+    
+    # Now you can safely split the 'log_entry_label' column
     df[['whisper_model_id', 'pyannote_model_id', 'llm_model_id']] = df['log_entry_label'].str.split(',', expand=True)
 
-    # Calculate the mean processing time for each model
+    # Convert the time columns to numeric
+    df['whisper_time'] = pd.to_numeric(df['whisper_time'])
+    df['pyannote_time'] = pd.to_numeric(df['pyannote_time'])
+    df['process_time'] = pd.to_numeric(df['process_time'])
+
+    # Now you can calculate the mean processing time for each model
     mean_times = df[['whisper_time', 'pyannote_time', 'process_time']].mean()
 
     # Plot the mean processing times
@@ -35,7 +40,4 @@ def plot(logs_file_path='logs/benchmark.csv'):
         os.makedirs('logs/figures')
 
     # Save the figure
-    plt.savefig(f'logs/figures/figure_{df.index[-1]}.png')
-
-    # Print the total time
-    print(f"Total time: {df['total_time'].mean()} seconds")
+    plt.savefig(f'logs/figures/figure_{df["index"].iloc[-1]}.png')

@@ -1,5 +1,7 @@
 # gemma.py is a utility file that contains functions that are used to interact with the GEMMA API
 
+from random import sample
+from sklearn.random_projection import sample_without_replacement
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import os
@@ -27,7 +29,7 @@ class Gemma:
     def tokenlen(self, text):
         return len(self.tokenizer(text, return_tensors='pt').to("cuda")['input_ids'][0])   
      
-    def request(self, text ,max_output_tokens=256):
+    def request(self, text ,max_output_tokens=512):
         try:  
             print(f"\nGenerating key points with gemma for the following text ...\n")
 
@@ -41,7 +43,7 @@ class Gemma:
             print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
             print(f"Max output tokens: {max_output_tokens}\n")
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=50, num_return_sequences=1)
+            outputs = self.model.generate(**inputs, max_length=max_output_tokens, num_return_sequences=1, temperature=0.9)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             generated_response = text.split("Le résumé de la transcription est:")[1]
@@ -55,20 +57,19 @@ class Gemma:
             return None
 
 
-    def summarize(self, text, max_output_tokens=256):
+    def summarize(self, text, max_output_tokens=512):
         try:  
             print(f"\nGenerating conclusion with gemma for the following text ...\n")
 
-            assistant_msg = 'Vous êtes un assistant utile qui génère un résumé de rapport en français.'
             
             prompt = "Génère la conclusion des textes ci-dessous:\n\n" + text + "\n\n"
-            messages = f"System: {assistant_msg} \n User: {prompt} \n La conclusion des textes est: "
+            messages = f"{prompt} La conclusion des textes est: "
             
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
             print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
             print(f"Max output tokens: {max_output_tokens}\n")
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=256, num_return_sequences=1)
+            outputs = self.model.generate(**inputs, max_length=max_output_tokens, num_return_sequences=1, temperature=0.9)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             generated_response = text.split("La conclusion des textes est:")[1]
