@@ -1,0 +1,15 @@
+tracemalloc
+transformers
+spacy
+datetime
+collections
+python-dotenv
+os
+pyannote.audio
+torch
+torchaudio
+openai
+tqdm
+pydub
+sympy
+huggingface_hub
