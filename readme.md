@@ -53,6 +53,7 @@ graph TD;
 
 ## Features
 
+### actual:
 - Language supported: French only at the moment
 - Automatic Speech Recognition with timestamps
 - Speaker Diarization with timestamps
@@ -61,8 +62,7 @@ graph TD;
 - Generate a conclusion for the meeting
 - Generate a report in markdown format with the annotated transcription, sub-summary, and conclusion
 
-## Future Features
-
+### next:
 - Multilanguage support
 - Add more Language Models to generate sub-summary and conclusion
 - Add a GUI to interact with the program
