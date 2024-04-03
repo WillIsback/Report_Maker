@@ -175,5 +175,4 @@ def generate_report(json_output, markdown_file):
 
         # Write the conclusion
         f.write("## Conclusion\n\n")
-        for conclusion in json_output['conclusion']:
-            f.write(f"- {conclusion}\n\n")
+        f.write(f"- {json_output['conclusion']}\n")

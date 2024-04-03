@@ -34,7 +34,7 @@ class Gemma:
             assistant_msg = 'Vous êtes un assistant utile qui résume une transcription en français.'
             
             prompt = "Génère le résumé des dialogues suivants: "  + text + "\n"
-            messages = f"System: {assistant_msg} \n User: {prompt} \n AI: "
+            messages = f"System: {assistant_msg} \n User: {prompt} \n Le résumé de la transcription est: "
             
             # print(f"\nRequesting response from GEMMA API for the following prompt: {messages} \n")
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
@@ -43,7 +43,7 @@ class Gemma:
             outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=128, num_return_sequences=1)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            generated_response = text.split("Le résumé de la transcription est :")[1]
+            generated_response = text.split("Le résumé de la transcription est:")[1]
             # print(f"\nAll generated: {text}\n")
             # print(f"\nResponse generated: {generated_response}\n")
             
@@ -60,8 +60,8 @@ class Gemma:
 
             assistant_msg = 'Vous êtes un assistant utile qui génère un résumé de rapport en français.'
             
-            prompt = "Génère le résumé des textes ci-dessous :\n\n" + text + "\n\n"
-            messages = f"System: {assistant_msg} \n User: {prompt} \n AI: "
+            prompt = "Génère la conclusion des textes ci-dessous:\n\n" + text + "\n\n"
+            messages = f"System: {assistant_msg} \n User: {prompt} \n La conclusion des textes est: "
             
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
             print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
@@ -69,7 +69,7 @@ class Gemma:
             outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=256, num_return_sequences=1)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            generated_response = text.split("AI:")[1]
+            generated_response = text.split("La conclusion des textes est:")[1]
             print(f"\nAll generated: {text}\n")
             # print(f"Response generated: {generated_response}")
             

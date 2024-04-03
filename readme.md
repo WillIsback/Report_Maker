@@ -84,8 +84,6 @@ graph TD;
 
 This project uses several language models, each with its own requirements and specifications:
 
-- **Whisper Large v3**: This is an automatic speech recognition model used to transcribe the audio file. It is free tier model.
-
 - **openai-GPT3.5-Turbo**: This model is used to process the dialogue and generate sub-summaries. Context window of X tokens. It is not open-source, This model is gated with openai credentials.
 
 - **GEMMA-7B/2B**: This model is used to process the sub-summary and generate a conclusion. Context window of X tokens. It is an open-source model and free tier but gated model via hugging face credentials.
