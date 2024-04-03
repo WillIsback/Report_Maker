@@ -2,15 +2,14 @@
 """
 @brief This module contains the functions to preprocess the text data before the report generation model can process it.
 """
-from tracemalloc import start
 from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 from .mistral import Mistral
 from .gemma import Gemma
+from .gpt import GPT
 import json
 import spacy
 import datetime
-from collections import defaultdict
-
+import yaml
 from tqdm import tqdm
 
 
@@ -77,71 +76,72 @@ def find_speaker(timestamp, diarization):
     return None
 
 MAX_TOKENS = 2048
-TOKENS_PADDING = 256
-TOKENS_CHUNK = 512
+MARGINS = 64
+TOKENS_PADDING = 256 + MARGINS
+TOKENS_CHUNK = 256 + MARGINS
 
-def process_dialogue(all_sentences, gemma):
+def process_dialogue(all_sentences, llm):
     sections = []
-    overall_transcription = ''
     speaker_transcription = ''
 
     for sentence in all_sentences:
         new_transcription = f"{speaker_transcription}\n{sentence['speaker']}: {sentence['text']}"
-        inputs = (gemma.encoder(new_transcription))
+        inputs = (llm.encoder(new_transcription))
         encoded_length = len(inputs['input_ids'][0])
         # print(f"Encoded length: {encoded_length}")
         if encoded_length > MAX_TOKENS - TOKENS_PADDING:
             # print(f"\nGenerating summary for transcriptions: {speaker_transcription}")
-            sub_summary = gemma.request(speaker_transcription)
+            sub_summary = llm.request(speaker_transcription)
             sections.append({'summary': sub_summary})
-            overall_transcription += ' ' + sub_summary
             speaker_transcription = f"speaker: {sentence['speaker']}: {sentence['text']}"
         else:
             speaker_transcription = new_transcription
 
     if speaker_transcription:
         # print(f"\nGenerating summary for transcriptions: {speaker_transcription}")
-        sub_summary = gemma.request(speaker_transcription)
+        sub_summary = llm.request(speaker_transcription)
         sections.append({'summary': sub_summary})
-        overall_transcription += ' ' + sub_summary
+        
+    return sections 
 
-    return sections, overall_transcription
-
-def process_conclusion(overall_transcription, gemma):
+def process_conclusion(overall_transcription, llm):
     overall_summary = ''
-    chunks = [overall_transcription]
+    chunks = ''
+    for section in overall_transcription:
+        new_summary = f"{chunks} \n {section['summary']}"
+        inputs = llm.encoder(new_summary)
+        encoded_length = len(inputs['input_ids'][0])
+        if encoded_length > MAX_TOKENS - TOKENS_CHUNK:
+            overall_summary += llm.summarize(chunks)
+            chunks = section['summary']
+        else:
+            chunks = new_summary
+    if chunks:
+        overall_summary += gemma.summarize(chunks)
+    return overall_summary
 
-    # Split chunks until each chunk is small enough
-    while any(len(gemma.encoder(chunk)['input_ids'][0]) > MAX_TOKENS - TOKENS_CHUNK for chunk in chunks):
-        new_chunks = []
-        for chunk in chunks:
-            if len(gemma.encoder(chunk)['input_ids'][0]) > MAX_TOKENS - TOKENS_CHUNK:
-                half = len(chunk) // 2
-                new_chunks.append(chunk[:half])
-                new_chunks.append(chunk[half:])
-            else:
-                new_chunks.append(chunk)
-        chunks = new_chunks
-
-    # Summarize each chunk and concatenate the summaries
-    for chunk in chunks:
-        overall_summary += ' ' + gemma.summarize(chunk)
-
-    return overall_summary.strip()
-
-def Process_transcription_and_diarization(transcription_file, rttm_file, output_file):
+def Process_transcription_and_diarization(transcription_file, rttm_file, output_file, llm_model_name):
     sentences = load_transcription(transcription_file)
     diarization = load_diarization(rttm_file)
     nlp = initialize_nlp()
-    gemma = Gemma()
+    
+    # Load the configuration file and initialize the LLM model
+    with open('Utils/config/config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+    if llm_model_name == 'gpt':
+        llm = GPT(config['large_language_models']['gpt'])
+    elif llm_model_name == 'mistral':
+        llm = Mistral(config['large_language_models']['mistral'])
+    elif llm_model_name == 'gemma':
+        llm = Gemma(config['large_language_models']['gemma'])
 
     all_sentences = [{'text': sentence, 'timestamp': timestamp, 'speaker': find_speaker(timestamp, diarization)} 
                      for sentence, timestamp in tqdm(sentences, desc="Processing sentences: ...") if find_speaker(timestamp, diarization) is not None]
 
     all_sentences.sort(key=lambda s: s['timestamp'])
 
-    sections, overall_transcription = process_dialogue(all_sentences, gemma)
-    overall_summary = process_conclusion(overall_transcription, gemma)
+    sections = process_dialogue(all_sentences, llm)
+    overall_summary = process_conclusion(sections, llm)
 
     output = {'conclusion': overall_summary, 'sections': sections, 'details': all_sentences}
 

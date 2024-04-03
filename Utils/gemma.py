@@ -1,9 +1,6 @@
 # gemma.py is a utility file that contains functions that are used to interact with the GEMMA API
 
-from sympy import use
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from huggingface_hub import HfApi
-import transformers
 import torch
 import os
 from dotenv import load_dotenv
@@ -14,7 +11,7 @@ load_dotenv()
 HUGGING_FACE = os.getenv('HUGGING_FACE')
 
 class Gemma:
-    def __init__(self, model_id="google/gemma-7b-it", dtype=torch.float16):       
+    def __init__(self, model_id="google/gemma-2b-it", dtype=torch.float16):       
         self.model_id = model_id
         self.dtype = dtype
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=HUGGING_FACE)
@@ -40,7 +37,8 @@ class Gemma:
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
             print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=128, num_return_sequences=1)
+            print(f"Max output tokens: {max_output_tokens}\n")
+            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=50, num_return_sequences=1)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             generated_response = text.split("Le résumé de la transcription est:")[1]
@@ -54,7 +52,7 @@ class Gemma:
             return None
 
 
-    def summarize(self, text, max_output_tokens=512):
+    def summarize(self, text, max_output_tokens=256):
         try:  
             print(f"\nGenerating conclusion with gemma for the following text ...\n")
 
@@ -66,11 +64,12 @@ class Gemma:
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
             print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=256, num_return_sequences=1)
+            print(f"Max output tokens: {max_output_tokens}\n")
+            outputs = self.model.generate(**inputs, max_length=max_output_tokens, min_length=50, num_return_sequences=1)
             
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             generated_response = text.split("La conclusion des textes est:")[1]
-            print(f"\nAll generated: {text}\n")
+            # print(f"\nAll generated: {text}\n")
             # print(f"Response generated: {generated_response}")
             
             return generated_response

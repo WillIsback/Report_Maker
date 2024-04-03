@@ -95,9 +95,13 @@ Please refer to the official documentation of each model for more detailed infor
 ## Usage
 
 Run the `main.py` script with your audio file as an argument.
-
+`--mode` is either `prod` (by default) for basic executions or `dev` for logs and benchmark.
+`--lm` is to choose wich large language to use, at the moment you can choose 3: <br>
+- `gpt` based on gpt-3.5-turbo **best** but not free.
+- `mistral` based on the quantinze 4b version of mistral-7b-instruct, **free and open source**. **long to compute**.
+- `gemma` based on gemma-2b-it, **fast but poorest performance**.
 ```bash
-python main.py your_audio_file.wav
+python main.py /path/to/your/audio/file --mode prod --llm gemma
 ```
 
 This will generate a report in markdown format in the `report` directory.

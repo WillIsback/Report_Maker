@@ -8,8 +8,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
 
 class GPT:
-    def __init__(self, api_key, model="gpt-3.5-turbo"):
-        self.api_key = api_key
+    def __init__(self, model="gpt-3.5-turbo"):
         self.model = model
         
     def request(self, text, max_output_tokens=256):
