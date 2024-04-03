@@ -19,6 +19,7 @@ import time
 import csv
 import yaml
 from Utils import preprocess_audio, Process_transcription_and_diarization, generate_report, Whisper, Pyannote, plot
+import pandas as pd
 
 class ReportMaker:
     def __init__(self, file_path, mode, llm_model_name):
@@ -29,7 +30,7 @@ class ReportMaker:
         with open('Utils/config/config.yaml', 'r') as f:
             self.config = yaml.safe_load(f)
         
-        self.llm_model_id = self.config['large_language_models'][self.llm_model_name]
+        self.llm_model_id = self.config['large_language_models'][f'{self.llm_model_name}']
         self.device = 'GPU' if torch.cuda.is_available() else 'CPU'
         if self.device == 'GPU':
             self.gpu_info = torch.cuda.get_device_properties(0)
@@ -104,9 +105,8 @@ class ReportMaker:
         if self.mode == 'dev':
             # Determine the index of the next entry
             if os.path.exists(self.log_file_path):
-                with open(self.log_file_path, 'r') as f:
-                    reader = csv.reader(f)
-                    self.index = max(sum(1 for row in reader) - 1, 0)
+                df = pd.read_csv(self.log_file_path)
+                self.index = df.iloc[-1, 0] + 1 if not df.empty else 0
             else:
                 self.index = 0
                 

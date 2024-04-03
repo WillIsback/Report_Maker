@@ -4,34 +4,21 @@ In this document, we compare the performance of two language models for text sum
 
 ## Model 1: Gemma
 
-The Gemma model generated the summary found in [this report](reports/gemma_report_5mn_output.md).
+The Gemma model generated the summary found in [this report](reports/gemma-interview_5mn_report_output_0.md).
 
-The time taken by the Gemma model to generate the summary is shown in the figure below:
-
-![Gemma Model Time](images/gemma_5mn.png)
 
 ## Model 2: GPT
 
-The GPT model generated the summary found in [this report](reports/gpt_report_5_mn_output.md).
+The GPT model generated the summary found in [this report](reports/gpt-interview_5mn_report_output_0.md).
 
-The time taken by the GPT model to generate the summary is shown in the figure below:
+## Model 2: BART
 
-![GPT Model Time](images/gpt_5m.png)
+The BART summary model generated the summary found in [this report](reports/bart-interview_5mn_report_output_1.md).
 
 ## Comparison
 
 In the following sections, we compare the Gemma and GPT models based on various evaluation criteria. Please refer to the individual reports for the generated summaries.
+![image comparatives audio 5mn](images/eval_model_5mn.png)
 
-### Clarity
-
-...
-
-### Accuracy
-
-...
-
-### Completeness
-
-...
 
 (Continue with the rest of your evaluation criteria)
