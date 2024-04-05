@@ -1,6 +1,6 @@
 
 import torch
-
+from pathlib import Path
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import json
 
@@ -22,18 +22,49 @@ class Whisper:
             model=self.model,
             tokenizer=self.processor.tokenizer,
             feature_extractor=self.processor.feature_extractor,
-            max_new_tokens=400,
+            max_new_tokens=128,
             chunk_length_s=30,
-            batch_size=32,
+            batch_size=16,
             return_timestamps=True,
             torch_dtype=self.dtype,
             device=self.device)
-        
+
     def transcription(self, file_path):
         # Perform speech recognition
-        print(f"\nPerforming speech recognition and transcription on audio file ...")
+        print("\n-------------------------------------------------------------------------------------\n")
+        Info_message = f"Performing speech recognition and transcription on audio file: {file_path} ..."
+        print(Info_message)
         transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french"})
 
-        # Write the transcription to a file
-        with open('report/log/transcription.json', 'w') as f:
-            json.dump(transcription["chunks"], f)
+        # Post-process the transcription to ensure that it doesn't exceed 128 tokens
+        processed_transcription_chunks = []
+        for chunk in transcription["chunks"]:
+            chunk_text = chunk["text"]
+            chunk_tokens = self.processor.tokenizer(chunk_text, return_tensors='pt', truncation=False)['input_ids'][0]
+
+            # Split long transcription into chunks of no more than 128 tokens
+            if len(chunk_tokens) > 128:
+                chunk_tokens_chunks = [chunk_tokens[i:i + 128] for i in range(0, len(chunk_tokens), 128)]
+
+                # Interpolate the timestamps for the new chunks
+                start_time, end_time = chunk["timestamp"]
+                total_duration = end_time - start_time
+                token_duration = total_duration / len(chunk_tokens)
+
+                for i, chunk_tokens_chunk in enumerate(chunk_tokens_chunks):
+                    chunk_start_time = start_time + i * 128 * token_duration
+                    chunk_end_time = min(chunk_start_time + 128 * token_duration, end_time)
+                    chunk_text_chunk = self.processor.tokenizer.decode(chunk_tokens_chunk)
+                    processed_transcription_chunks.append({"timestamp": [chunk_start_time, chunk_end_time], "text": chunk_text_chunk})
+            else:
+                processed_transcription_chunks.append(chunk)
+
+        # Get the absolute path of the root directory of the project
+        root_dir = Path(__file__).resolve().parent.parent
+
+        # Construct the absolute path of the transcription file
+        transcription_file_path = root_dir / 'report' / 'log' / 'transcription.json'
+        print("\n-------------------------------end---------------------------------------------------\n")
+        # Write the processed transcription to a file
+        with transcription_file_path.open('w') as f:
+            json.dump(processed_transcription_chunks, f)

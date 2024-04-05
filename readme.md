@@ -32,8 +32,8 @@ With AI Report Maker, you can transform lengthy meetings into concise, easy-to-r
 ## Flow-Chart
 ```mermaid
 graph TD;
-    A[Audio file .wav/.mp3]--> 
-    B(Preprocess audio)-->C(Transcription) 
+    A[Audio file .wav/.mp3]-->
+    B(Preprocess audio)-->C(Transcription)
     B(Pre-process audio)-->D(Diarization)
     E(Pre-process_dialogue)
     C-->|text + timestamp|E
@@ -42,7 +42,7 @@ graph TD;
      context window}
     F -->|YES| G[Summarize dialogue]
     F -->|NO| H[Split Dialogue] --> F
-    G --> I{token length < 
+    G --> I{token length <
     context window}
     I -->|YES| J[Generate conclusion]
     I -->|NO| K[Split Summarize] --> I
@@ -85,11 +85,11 @@ graph TD;
 
 This project uses several language models, each with its own requirements and specifications:
 
-- **openai-GPT3.5-Turbo**: This model is used to process the dialogue and generate sub-summaries. Context window of X tokens. It is not open-source, This model is gated with openai credentials.
+- **GPT3.5-Turbo**: It is not open-source and no free tier, This model is gated with openai credentials.
 
-- **GEMMA-2B**: This model is used to process the sub-summary and generate a conclusion. Context window of X tokens. It is an open-source model and free tier but gated model via hugging face credentials.
+- **GEMMA-2B/7B**: It is an open-source model and free tier but gated model via hugging face credentials.
 
-- **MISTRAL-7B**: This model is also used to process the sub-summary and generate a conclusion. Context window of 32768 tokens. It is open-source, and has a free tier available. This model is not gated.
+- **MISTRAL-7B**: Local LLM compute with llama_cpp
 
 - **BART**: this is a summarize model made by facebook, it is open source, free. quite good but only handle english.
 
@@ -100,12 +100,13 @@ Please refer to the official documentation of each model for more detailed infor
 Run the `main.py` script with your audio file as an argument.
 `--mode` is either `prod` (by default) for basic executions or `dev` for logs and benchmark.
 `--lm` is to choose wich large language to use, at the moment you can choose 3: <br>
-- `gpt` based on gpt-3.5-turbo **best** but not free.
-- `mistral` based on the quantinze 4b version of mistral-7b-instruct, **free and open source**. **long to compute**.
-- `gemma` based on gemma-2b-it, **fast but poorest performance**.
-- `bart` based on facebook/bart-large-cnn **fast and ok performance**
+- `gpt` based on gpt-3.5-turbo, **Not free but fast speed and highest performance**.
+- `mistral` based on the quantinze 4bits version of mistral-7b-instruct, **slow speed and poor performance**.
+- `gemma-7b` based on gemma-7b-it, **average speed but low performance**.
+- `gemma-2b` based on gemma-2b-it, **fast speed but poor performance**.
+- `bart` based on bart-large-cnn **slow speed and poor performance**.
 ```bash
-python main.py /path/to/your/audio/file --mode prod --llm bart
+python main.py /path/to/your/audio/file --mode prod --llm gemma-2b
 ```
 
 This will generate a report in markdown format in the `report` directory.
@@ -115,7 +116,7 @@ This will generate a report in markdown format in the `report` directory.
 
 There is **no metrics** to benchmark the result of the report generation. So a **website** is made as a platform for the **evaluation form**. The form automatically **collect responses and provide a way to view them**. Feel free to check the **online form: **https://eval-app.online/  to start rating the **Report Maker**
 
-**Manual Evaluation**: Have human evaluators rate the quality of the summaries. This can be time-consuming but can provide valuable insights into aspects like coherence and relevance that automated metrics might miss. 
+**Manual Evaluation**: Have human evaluators rate the quality of the summaries. This can be time-consuming but can provide valuable insights into aspects like coherence and relevance that automated metrics might miss.
 
 more details at [Evaluation_docs](Evaluation/readme.md).
 latest evaluation result [Evaluation résult](Evaluation/evaluation.md)

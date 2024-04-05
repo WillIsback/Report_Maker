@@ -11,14 +11,11 @@
 """
 import os
 import argparse
-import json
-from pdb import run
 import torch
 import platform
 import time
-import csv
 import yaml
-from Utils import preprocess_audio, Process_transcription_and_diarization, generate_report, Whisper, Pyannote, plot
+from Utils import preprocess_audio, get_file_hash, Process_transcription_and_diarization, generate_report, Whisper, Pyannote, plot
 import pandas as pd
 
 class ReportMaker:
@@ -29,7 +26,7 @@ class ReportMaker:
         # Load the configuration file
         with open('Utils/config/config.yaml', 'r') as f:
             self.config = yaml.safe_load(f)
-        
+
         self.llm_model_id = self.config['large_language_models'][f'{self.llm_model_name}']
         self.device = 'GPU' if torch.cuda.is_available() else 'CPU'
         if self.device == 'GPU':
@@ -38,31 +35,68 @@ class ReportMaker:
         else:
             self.gpu_info = torch.cuda.get_device_properties(0)
             self.device_info = f"DEVICE: {platform.uname()}"
-            
+
         self.ASR_model_id = self.config['audio_processing_models']['whisper_model_id']
         self.diarization_model_id = self.config['audio_processing_models']['pyannote_model_id']
-        
+
         self.whisper_time = 0
         self.pyannote_time = 0
         self.process_time = 0
         self.total_time = 0
         self.index = 0
-        
+
         filename_with_ext = os.path.basename(self.file_path)
         self.filename, _ = os.path.splitext(filename_with_ext)
         self.audio_file = preprocess_audio(self.file_path)
         self.transcription_json = 'report/log/transcription.json'
         self.diarization_rttm = 'report/log/diarization.rttm'
         self.output_json = 'report/log/output.json'
-        self.log_entry_label = f"{self.ASR_model_id},{self.diarization_model_id},{self.llm_model_id}"
         self.log_audio_file = f"audio_file: {self.filename}"
         self.log_file_path = 'logs/benchmark.csv'
-        
+        self.current_file_hash = get_file_hash(self.audio_file)
+
+    def check_audio_file_change(self):
+        if os.path.exists(self.log_file_path):
+            df = pd.read_csv(self.log_file_path)
+            self.index = df.iloc[-1, 0] + 1  # Increment the index
+            if df.iloc[-1, 1] == self.current_file_hash:  # If the file hash is the same
+                return False  # No change in the file
+            else:  # If the file hash is different
+                return True  # File has changed
+        else:  # If the file does not exist
+            self.index  = 0
+            return True  # File has changed
+
+    def log(self):
+        if self.mode == 'dev':
+            print(f'Index: {self.index}')  # Print the index
+
+            # Prepare the new data
+            log_data = pd.DataFrame({
+                'index': [self.index],
+                'file_hash': [self.current_file_hash],
+                'whisper_model_id' : [self.ASR_model_id],
+                'pyannote_model_id' : [self.diarization_model_id],
+                'llm_model_id' : [self.llm_model_id],
+                'log_audio_file': [self.log_audio_file],
+                'device': [self.device],
+                'device_info': [str(self.device_info)],
+                'whisper_time': [self.whisper_time],
+                'pyannote_time': [self.pyannote_time],
+                'process_time': [self.process_time],
+                'total_time': [self.total_time]
+            })
+
+
+            log_data.to_csv(self.log_file_path, mode='a', header=not os.path.exists(self.log_file_path), index=False)
+
+            plot(self.log_file_path)
+
     def preprocess_audio(self):
         # Preprocess the audio file:
         print(f"\nPreprocessing audio file: {self.file_path}")
         return preprocess_audio(self.file_path)
-    
+
     def run_ASR(self):
         # Perform speech recognition and transcription
         whisper = Whisper(self.config['audio_processing_models']['whisper_model_id'])
@@ -70,7 +104,7 @@ class ReportMaker:
         whisper.transcription(self.audio_file)
         whisper_end_time = time.time()
         self.whisper_time = whisper_end_time - whisper_start_time
-        
+
     def run_Diarization(self):
         #Perform speaker diarization
         pyannote = Pyannote(self.audio_file, self.config['audio_processing_models']['pyannote_model_id'])
@@ -78,7 +112,7 @@ class ReportMaker:
         pyannote.diarization()
         pyannote_end_time = time.time()
         self.pyannote_time = pyannote_end_time - pyannote_start_time
-        
+
     def run_preprocess_text(self):
         # combine transcription and diarization
         print("\nProcessing, combining transcription and diarization")
@@ -86,46 +120,51 @@ class ReportMaker:
         Process_transcription_and_diarization(self.transcription_json, self.diarization_rttm, self.output_json, self.llm_model_name)
         process_end_time = time.time()
         self.process_time = process_end_time - process_start_time
-        
+
     def generate_report(self):
         # Generate the report
         generate_report(self.output_json, f'report/{self.llm_model_name}-{self.filename}_report_output_{self.index}.md')
-    
+
+    def PrintHeader(self):
+        print("\033[1;34m\n-------------------------------------------------------------------------------------\n\033[0m")
+        print("""
+        \033[1;32m
+        ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ███╗   ███╗ █████╗ ██╗  ██╗███████╗██████╗
+        ██╔══██╗██╔════╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ████╗ ████║██╔══██╗██║ ██╔╝██╔════╝██╔══██╗
+        ██████╔╝█████╗  ██████╔╝██║   ██║██████╔╝   ██║       ██╔████╔██║███████║█████╔╝ █████╗  ██████╔╝
+        ██╔══██╗██╔══╝  ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██║╚██╔╝██║██╔══██║██╔═██╗ ██╔══╝  ██╔══██╗
+        ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██║ ╚═╝ ██║██║  ██║██║  ██╗███████╗██║  ██║
+        ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚
+        \033[0m
+        """)
+        print(f"\033[1;32mRunning AI Report Maker in \033[1;34m{self.mode}\033[1;32m mode with \033[1;34m{self.device}\033[1;32m device to process the record \033[1;34m{self.filename}\033[1;32m with \033[1;34m{self.llm_model_id}\033[1;32m Large Language Model and \033[1;34m{self.ASR_model_id}\033[1;32m ASR model and \033[1;34m{self.diarization_model_id}\033[1;32m Diarization model.\033[0m")
+        print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
+
     def run(self):
+        self.PrintHeader()
         start_time= time.time()
-        self.run_ASR()
-        self.run_Diarization()
+        if self.check_audio_file_change():
+            self.run_ASR()
+            self.run_Diarization()
         self.run_preprocess_text()
         end_time = time.time()
         self.total_time = end_time - start_time
 
         print(f"\nProcessing time: {self.total_time} seconds\n")
-        
+
 
         if self.mode == 'dev':
-            # Determine the index of the next entry
-            if os.path.exists(self.log_file_path):
-                df = pd.read_csv(self.log_file_path)
-                self.index = df.iloc[-1, 0] + 1 if not df.empty else 0
-            else:
-                self.index = 0
-                
-            # Write the new entry
-            with open(self.log_file_path, 'a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([self.index, self.log_entry_label, self.log_audio_file , self.device, str(self.device_info), self.whisper_time, self.pyannote_time, self.process_time, self.total_time])
-
-                # Generate the report
-                self.generate_report()
-                
-                plot(self.log_file_path)
-            
-        elif self.mode == 'prod':         
+            # Log the results
+            self.log()
             # Generate the report
             self.generate_report()
-            
 
-            
+        elif self.mode == 'prod':
+            # Generate the report
+            self.generate_report()
+
+        print("\n------------------------------------end run----------------------------------------------\n")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process an audio file and generate a report.')
     parser.add_argument('file_path', type=str, help='The path to the audio file to process')

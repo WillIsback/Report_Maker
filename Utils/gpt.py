@@ -11,46 +11,42 @@ class GPT:
         # Get the OpenAI API key from the environment variables
         self.client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
         self.tokenizer = get_encoding("cl100k_base")
-        
+
     def encoder(self, text):
         return self.tokenizer.encode(text)
-    
+
     def tokenlen(self, text):
         return len(self.tokenizer.encode(text))
-        
-    def request(self, text, max_output_tokens=256):
+
+    def request(self, text, max_output_tokens=100):
         # Define the system message
         system_msg = 'Vous êtes un assistant utile qui génère un résumé.'
         prompt = f"Genere un résumé des dialogues ci-dessous:\n\n {text} \n\n"
         messages=[{"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}]
-        
+
         messages_length = self.tokenlen(f"{messages[0]['content']} {messages[1]['content']}")
-        print(f"Input tokenize size is {messages_length}\n")
         max_output_tokens = max_output_tokens + messages_length
-        print(f"Max output tokens: {max_output_tokens}\n")
         print(f"\nGenerating summary with GPT with input token size: {messages_length} and output: {max_output_tokens}\n")
         # Use the language model to generate the summary
         response = self.client.chat.completions.create(model=self.model,
                                                 messages=messages,
                                                 max_tokens=max_output_tokens,
                                                 temperature=0)
-        
+
         # Extract the generated text from the response
         generated_text = response.choices[0].message.content
         return generated_text
-    
-    def summarize(self, text, max_output_tokens=256):
+
+    def summarize(self, text, max_output_tokens=512):
         # Define the system message
         system_msg = 'Vous êtes un assistant utile qui génère un résumé.'
         prompt = f"Genere un résumé des résumés ci-dessous:\n\n {text} \n\n"
         messages=[{"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}]
-        
+
         messages_length = self.tokenlen(f"{messages[0]['content']} {messages[1]['content']}")
-        print(f"Input tokenize size is {messages_length}\n")
         max_output_tokens = max_output_tokens + messages_length
-        print(f"Max output tokens: {max_output_tokens}\n")
         print(f"\nGenerating conclusion with GPT with input token size: {messages_length} and output: {max_output_tokens}\n")
         # Use the language model to generate the summary
         response = self.client.chat.completions.create(model=self.model,

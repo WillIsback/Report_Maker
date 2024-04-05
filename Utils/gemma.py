@@ -1,7 +1,4 @@
 # gemma.py is a utility file that contains functions that are used to interact with the GEMMA API
-
-from random import sample
-from sklearn.random_projection import sample_without_replacement
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import os
@@ -13,7 +10,7 @@ load_dotenv()
 HUGGING_FACE = os.getenv('HUGGING_FACE')
 
 class Gemma:
-    def __init__(self, model_id="google/gemma-2b-it", dtype=torch.float16):       
+    def __init__(self, model_id="google/gemma-2b-it", dtype=torch.float16):
         self.model_id = model_id
         self.dtype = dtype
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=HUGGING_FACE)
@@ -25,60 +22,60 @@ class Gemma:
         )
     def encoder(self, text):
         return self.tokenizer(text, return_tensors='pt').to("cuda")
-    
-    def tokenlen(self, text):
-        return len(self.tokenizer(text, return_tensors='pt').to("cuda")['input_ids'][0])   
-     
-    def request(self, text ,max_output_tokens=512):
-        try:  
-            print(f"\nGenerating key points with gemma for the following text ...\n")
 
-            assistant_msg = 'Vous êtes un assistant utile qui résume une transcription en français.'
-            
-            prompt = "Génère le résumé des dialogues suivants: "  + text + "\n"
-            messages = f"System: {assistant_msg} \n User: {prompt} \n Le résumé de la transcription est: "
-            
+    def tokenlen(self, text):
+        # Activate truncation and padding
+        return len(self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512).to("cuda")['input_ids'][0])
+
+    def request(self, text ,max_output_tokens=100):
+        try:
+            info_mess = "\nGenerating key points with gemma for the following text ...\n"
+            print(info_mess)
+
+            prompt = "Résume les dialogues suivants: "  + text + "\n"
+            messages = f"{prompt} \n Le résumé des dialogues est: "
+
             # print(f"\nRequesting response from GEMMA API for the following prompt: {messages} \n")
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
-            print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
-            print(f"Max output tokens: {max_output_tokens}\n")
+            print(f"Input token size is {len(inputs['input_ids'][0])} Max output tokens: {max_output_tokens}\n")
             outputs = self.model.generate(**inputs, max_length=max_output_tokens, num_return_sequences=1, temperature=0.9)
-            
+
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            generated_response = text.split("Le résumé de la transcription est:")[1]
-            # print(f"\nAll generated: {text}\n")
-            # print(f"\nResponse generated: {generated_response}\n")
-            
+            split_text = text.split("Le résumé des dialogues est:")
+            generated_response = split_text[1].strip() if len(split_text) > 1 else "No summary found"
+            # print(f"\nAll generated: \n{text}\n")
+            # print(f"\nResponse generated: \n {generated_response}\n")
+
             return generated_response
-    
+
         except (Exception, SystemExit) as e:
             print(f"An unexpected error occurred: {e}")
             return None
 
 
     def summarize(self, text, max_output_tokens=512):
-        try:  
-            print(f"\nGenerating conclusion with gemma for the following text ...\n")
+        try:
+            info_mess = "\nGenerating conclusion with gemma for the following text ...\n"
+            print(info_mess)
 
-            
-            prompt = "Génère la conclusion des textes ci-dessous:\n\n" + text + "\n\n"
-            messages = f"{prompt} La conclusion des textes est: "
-            
+            prompt = "Résume les textes ci-dessous:\n\n" + text + "\n\n"
+            messages = f"{prompt} Le résumé des textes est: "
+
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
-            print(f"Input tokenize size is {len(inputs['input_ids'][0])}\n")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
-            print(f"Max output tokens: {max_output_tokens}\n")
+            print(f"Input token size is {len(inputs['input_ids'][0])} Max output tokens: {max_output_tokens}\n")
             outputs = self.model.generate(**inputs, max_length=max_output_tokens, num_return_sequences=1, temperature=0.9)
-            
+
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            generated_response = text.split("La conclusion des textes est:")[1]
-            # print(f"\nAll generated: {text}\n")
-            # print(f"Response generated: {generated_response}")
-            
+            split_text = text.split("Le résumé des textes est:")
+            generated_response = split_text[1].strip() if len(split_text) > 1 else "No summary found"
+            # print(f"\nAll generated: \n{text}\n")
+            # print(f"Response generated: \n{generated_response}")
+
             return generated_response
-        
-    
+
+
         except (Exception, SystemExit) as e:
             print(f"An unexpected error occurred: {e}")
             return None

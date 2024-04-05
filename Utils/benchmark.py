@@ -6,10 +6,7 @@ import os
 
 def plot(logs_file_path='logs/benchmark.csv'):
     # Load the data from the CSV file
-    df = pd.read_csv(logs_file_path, names=['index', 'log_entry_label', 'log_audio_file', 'device', 'device_info', 'whisper_time', 'pyannote_time', 'process_time', 'report_time', 'total_time'])
-    
-    # Now you can safely split the 'log_entry_label' column
-    df[['whisper_model_id', 'pyannote_model_id', 'llm_model_id']] = df['log_entry_label'].str.split(',', expand=True)
+    df = pd.read_csv(logs_file_path)
 
     # Convert the time columns to numeric
     df['whisper_time'] = pd.to_numeric(df['whisper_time'])

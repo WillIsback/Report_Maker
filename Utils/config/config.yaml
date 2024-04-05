@@ -1,10 +1,11 @@
 audio_processing_models:
-  whisper_model_id: "openai/whisper-large-v3"
-  pyannote_model_id: "pyannote/speaker-diarization-3.1"
+  whisper_model_id: openai/whisper-large-v3
+  pyannote_model_id: pyannote/speaker-diarization-3.1
 
 large_language_models:
-  gpt: "gpt-3.5-turbo"
-  gemma: "google/gemma-2b-it"
-  mistral: "model/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
-  camembert: "mrm8488/camembert2camembert_shared-finetuned-french-summarization"
-  bart: "facebook/bart-large-cnn"
+  gpt: gpt-3.5-turbo
+  gemma-7b: google/gemma-7b-it
+  gemma-2b: google/gemma-2b-it
+  mistral: model/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+  camembert: mrm8488/camembert2camembert_shared-finetuned-french-summarization
+  bart: facebook/bart-large-cnn
