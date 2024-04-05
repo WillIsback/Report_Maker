@@ -3,9 +3,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import os
 from dotenv import load_dotenv
-
+import warnings
 load_dotenv()
-
+warnings.filterwarnings('ignore')
 # Get the Hugging Face API key from the environment variables
 HUGGING_FACE = os.getenv('HUGGING_FACE')
 
@@ -20,6 +20,8 @@ class Gemma:
             torch_dtype=dtype,
             token=HUGGING_FACE
         )
+        self.max_tokens = 1024
+
     def encoder(self, text):
         return self.tokenizer(text, return_tensors='pt').to("cuda")
 
@@ -39,7 +41,7 @@ class Gemma:
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
             print(f"Input token size is {len(inputs['input_ids'][0])} Max output tokens: {max_output_tokens}\n")
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, num_return_sequences=1, temperature=0.9)
+            outputs = self.model.generate(**inputs, max_length=self.max_tokens, num_return_sequences=1, temperature=0.9)
 
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             split_text = text.split("Le résumé des dialogues est:")
@@ -65,7 +67,7 @@ class Gemma:
             inputs = self.tokenizer(messages, return_tensors='pt').to("cuda")
             max_output_tokens = max_output_tokens + len(inputs['input_ids'][0])
             print(f"Input token size is {len(inputs['input_ids'][0])} Max output tokens: {max_output_tokens}\n")
-            outputs = self.model.generate(**inputs, max_length=max_output_tokens, num_return_sequences=1, temperature=0.9)
+            outputs = self.model.generate(**inputs, max_length=self.max_tokens, num_return_sequences=1, temperature=0.9)
 
             text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             split_text = text.split("Le résumé des textes est:")

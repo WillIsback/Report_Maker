@@ -2,89 +2,98 @@
 from pathlib import Path
 import spacy
 import json
+import numpy as np
 
 class ANR:
     def __init__(self, text):
         self.text = text
         self.nlp = spacy.load("fr_core_news_lg")
+        self.trf = spacy.load("fr_dep_news_trf")
         self.entities = {}
         self.organizations = {}
         self.locations = {}
         self.first_names = []
+        self.key_elements_counts = []
         self.all_labels = {}
-    def Full(self):
-        onomatopoeia = ['ah', 'eh', 'uh', 'oh', 'um', 'hmm', 'ha', 'hee', 'bah',
-                        'poof', 'phew', 'ugh', 'sheesh', 'whew', 'yikes', 'eek', 'hm',
-                        'huh', 'whoa', 'oops', 'ouch', 'aw', 'yo', 'wow', 'wham', 'zap',
-                        'bang', 'boom', 'crash', 'ding', 'knock', 'tap', 'clang', 'clank',
-                        'sizzle', 'splash', 'squish', 'thud', 'thump', 'tick', 'tock',
-                        'vroom', 'whir', 'buzz', 'crackle', 'giggle', 'groan', 'grunt',
-                        'guffaw', 'ha', 'hoot', 'howl', 'roar', 'scream', 'shriek', 'snicker',
-                        'snort', 'squeal', 'yawn', 'yelp', 'yowl', 'yuck']
+        self.root_dir = Path(__file__).resolve().parent.parent        # Get the absolute path of the root directory of the project
+        self.threshold = 0
+        self.trf_results = self.TRF()
 
-        # Get the absolute path of the root directory of the project
-        root_dir = Path(__file__).resolve().parent.parent
 
-        # Construct the absolute path of the transcription file
-        first_names_file_path = root_dir / 'Utils' / 'database' / 'first_names.json'
+    def TRF(self):
+        trf_results = []
 
-        # Load your database of first names
-        with open(first_names_file_path, 'r') as f:
-            first_names_data = json.load(f)
-
-        # Use the French names
-        first_names_dict = first_names_data['french']
-
-        for paragraph_dict in self.text:
-            paragraph = paragraph_dict['sentence']['text']
-            # Remove onomatopoeia
-            paragraph = ' '.join(word for word in paragraph.split() if word.lower() not in onomatopoeia)
+        for sentences_dict in self.text:
+            paragraph = sentences_dict['sentence']['text']
             doc = self.nlp(paragraph)
-            for ent in doc.ents:
-                if ent.label_ == 'PER':
-                    self.entities[ent.text] = ent.label_
-                if ent.label_ == 'ORG':
-                    self.organizations[ent.text] = ent.label_
-                if ent.label_ == 'LOC':
-                    self.locations[ent.text] = ent.label_
+            named_entities = [(ent.text, ent.label_) for ent in doc.ents]
+            doc = self.trf(paragraph)
+            main_verbs = [token.lemma_ for token in doc if token.dep_ in ('ROOT', 'relcl')]
+            subjects_objects = [(token.lemma_, token.dep_) for token in doc if token.dep_ in ('nsubj', 'dobj')]
+            sentences = [sent.text for sent in doc.sents]
+            timestamp = sentences_dict['sentence']['timestamp']
+            speaker_id = sentences_dict['sentence']['speaker']
+            trf_results.append({
+                'named_entities': named_entities,
+                'main_verbs': main_verbs,
+                'subjects_objects': subjects_objects,
+                'sentences': sentences,
+                'timestamp': timestamp,
+                'speaker': speaker_id
+            })
+            self.key_elements_counts.append(len(named_entities) + len(main_verbs) + len(subjects_objects))
 
+        file_path_trf = self.root_dir / 'report' / 'log' / 'trf.json'
+        with open(file_path_trf, 'w') as f:
+            json.dump(trf_results, f, indent=4)
+        return trf_results
 
-        self.all_labels = {**self.entities, **self.organizations, **self.locations}
+    def summarize_text(self,threshold_percentile=50):
+        # Identify key sentences
+        key_sentences = []
+        self.threshold = np.percentile(self.key_elements_counts, threshold_percentile)
 
+        for index, result in enumerate(self.trf_results):
+            # Count the number of key elements in the sentence
+            num_key_elements = len(result['named_entities']) + len(result['main_verbs']) + len(result['subjects_objects'])
+            # If the sentence contains more than a certain number of key elements, consider it a key sentence
+            if num_key_elements > self.threshold:
+                key_sentences.append({
+                        'index': index,
+                        'sentence': {
+                            'text': result['sentences'][0],
+                            'timestamp': result['timestamp'],
+                            'speaker': result['speaker'],
+                            'named_entities': result['named_entities']
+                        }
+                    })  # Assuming each result corresponds to one sentence
+        file_path_summary = self.root_dir / 'report' / 'log' / 'nlp_summary.json'
+        with open(file_path_summary, 'w') as f:
+            json.dump(key_sentences, f, indent=4)
+        return key_sentences
 
-        ent_first_names = [name.split()[0] for name in self.entities.keys()]
-        for name in ent_first_names:
-            if name.lower() in first_names_dict:
-                self.first_names.append(name)
-
-        # Remove duplicates
-        self.first_names = list(set(self.first_names))
-
-        # Construct the absolute path of the transcription file
-        log_anr_file_path = root_dir/'report/log/log_anr.json'
-
-        # Load your database of first names
-        with open(log_anr_file_path, 'w') as f:
-            json.dump(self.all_labels, f, indent=4)
-
-        return self.first_names, self.organizations, self.locations, self.entities
+    def add_key_elements(self):
+        # Identify key sentences
+        all_sentences_with_key_elements = []
+        for index, result in enumerate(self.trf_results):
+            all_sentences_with_key_elements.append({
+                    'index': index,
+                    'sentence': {
+                        'text': result['sentences'][0],
+                        'timestamp': result['timestamp'],
+                        'speaker': result['speaker'],
+                        'named_entities': result['named_entities']
+                    }
+                })  # Assuming each result corresponds to one sentence
+        return all_sentences_with_key_elements
 
     def GetSpeakerName(self):
         speakers_names = {}  # Initialize a dictionary to store speaker IDs and names
-        all_speaker_ids = {sentence_dict['sentence']['speaker'] for sentence_dict in self.text}  # Create a set of all speaker IDs
+        all_speaker_ids = {sentence_dict['speaker'] for sentence_dict in self.trf_results}  # Create a set of all speaker IDs
 
-        for i in range(len(self.text) - 1):  # Iterate over sentences, excluding the last one
-            sentence_dict = self.text[i]
-            sentence = sentence_dict['sentence']['text']  # Extract the text of the sentence
-            # Rule 1: Last Speaker Rule
-            '''
-            If a name is mentioned right after a speaker's turn, it's likely that the name belongs to the last speaker.
-            This is based on the assumption that people often refer to themselves in the third person when speaking.
-            '''
-            # for name in self.first_names:
-            #     if name.lower() in sentence.lower():
-            #         speaker_names[speaker_id] = name
-            #         print(f"Rule 1 used to assign {name} to {speaker_id}")
+        for i in range(len(self.trf_results) - 1):  # Iterate over sentences, excluding the last one
+            sentence_dict = self.trf_results[i]
+            sentence = sentence_dict['sentences'][0]  # Extract the text of the sentence
 
             # Rule 2: Question Rule
             '''
@@ -94,21 +103,12 @@ class ANR:
             if '?' in sentence:
                 next_sentence_dict = self.text[i + 1]
                 next_speaker_id = next_sentence_dict['sentence']['speaker']  # Extract the speaker ID of the next sentence
-                for name in self.first_names:
-                    if name.lower() in sentence.lower():
+                named_entities = sentence_dict['named_entities']
+                for entity in named_entities:
+                    if entity[1] == 'PER':
+                        name = entity[0]
                         speakers_names[next_speaker_id] = name
                         print(f"Rule 2 used to assign {name} to {next_speaker_id}")
-
-            # Rule 3: Introduction Rule
-            '''
-            If a name is mentioned in the beginning of a conversation, it's likely that the name belongs to the speaker who is being introduced.
-            This is based on the assumption that people often introduce themselves at the start of a conversation.
-            '''
-            # if i == 0:
-            #     for name in self.first_names:
-            #         if name.lower() in sentence.lower():
-            #             speaker_names[speaker_id] = name
-            #             print(f"Rule 3 used to assign {name} to {speaker_id}")
 
         # After all rules have been applied, assign '...' to the remaining speaker IDs
         remaining_speaker_ids = all_speaker_ids - set(speakers_names.keys())
@@ -118,5 +118,29 @@ class ANR:
         # Replace the speaker IDs with their names
         for speaker_id, name in speakers_names.items():
             print(f"Speaker_names dic: {speaker_id}: {name}")
+
         return speakers_names
 
+
+
+# Rule based idea for speaker identification:
+# Rule 3: Introduction Rule
+'''
+If a name is mentioned in the beginning of a conversation, it's likely that the name belongs to the speaker who is being introduced.
+This is based on the assumption that people often introduce themselves at the start of a conversation.
+'''
+# if i == 0:
+#     for name in self.first_names:
+#         if name.lower() in sentence.lower():
+#             speaker_names[speaker_id] = name
+#             print(f"Rule 3 used to assign {name} to {speaker_id}")
+
+# Rule 1: Last Speaker Rule
+'''
+If a name is mentioned right after a speaker's turn, it's likely that the name belongs to the last speaker.
+This is based on the assumption that people often refer to themselves in the third person when speaking.
+'''
+# for name in self.first_names:
+#     if name.lower() in sentence.lower():
+#         speaker_names[speaker_id] = name
+#         print(f"Rule 1 used to assign {name} to {speaker_id}")

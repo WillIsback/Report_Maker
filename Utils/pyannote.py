@@ -1,9 +1,14 @@
+import warnings
 from dotenv import load_dotenv
 import os
 import torch
 import torchaudio
 from pyannote.audio import Pipeline
 from pathlib import Path
+
+# Suppress the UserWarning from torchaudio
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 load_dotenv()
 

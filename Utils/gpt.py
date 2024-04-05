@@ -11,7 +11,7 @@ class GPT:
         # Get the OpenAI API key from the environment variables
         self.client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
         self.tokenizer = get_encoding("cl100k_base")
-
+        self.max_tokens = 2048
     def encoder(self, text):
         return self.tokenizer.encode(text)
 
@@ -31,7 +31,7 @@ class GPT:
         # Use the language model to generate the summary
         response = self.client.chat.completions.create(model=self.model,
                                                 messages=messages,
-                                                max_tokens=max_output_tokens,
+                                                max_tokens=self.max_tokens,
                                                 temperature=0)
 
         # Extract the generated text from the response
@@ -51,7 +51,7 @@ class GPT:
         # Use the language model to generate the summary
         response = self.client.chat.completions.create(model=self.model,
                                                 messages=messages,
-                                                max_tokens=max_output_tokens,
+                                                max_tokens=self.max_tokens,
                                                 temperature=0)
         # Extract the generated text from the response
         generated_text = response.choices[0].message.content

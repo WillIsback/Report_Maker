@@ -11,6 +11,6 @@ then
 fi
 
 # Run the Python program with each LLM
-for llm in gpt gemma bart; do
+for llm in gpt gemma-7b bart; do
     python main.py $audio_file --mode dev --llm $llm
 done

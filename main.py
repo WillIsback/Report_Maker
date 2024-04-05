@@ -19,10 +19,11 @@ from Utils import preprocess_audio, get_file_hash, Process_transcription_and_dia
 import pandas as pd
 
 class ReportMaker:
-    def __init__(self, file_path, mode, llm_model_name):
+    def __init__(self, file_path, mode, llm_model_name, lang='fr'):
         self.file_path = file_path
         self.mode = mode
         self.llm_model_name = llm_model_name
+        self.lang = lang
         # Load the configuration file
         with open('Utils/config/config.yaml', 'r') as f:
             self.config = yaml.safe_load(f)
@@ -99,15 +100,21 @@ class ReportMaker:
 
     def run_ASR(self):
         # Perform speech recognition and transcription
-        whisper = Whisper(self.config['audio_processing_models']['whisper_model_id'])
+        whisper = Whisper(self.ASR_model_id)
         whisper_start_time = time.time()
-        whisper.transcription(self.audio_file)
+        if self.lang == 'fr':
+            whisper.transcription(self.audio_file, lang='fr')
+        elif self.lang == 'en':
+            whisper.transcription(self.audio_file, lang='en')
+        elif self.llm_model_name == 'bart' and self.lang == 'fr':
+            whisper.transcription(self.audio_file, lang='bart')
+
         whisper_end_time = time.time()
         self.whisper_time = whisper_end_time - whisper_start_time
 
     def run_Diarization(self):
         #Perform speaker diarization
-        pyannote = Pyannote(self.audio_file, self.config['audio_processing_models']['pyannote_model_id'])
+        pyannote = Pyannote(self.diarization_model_id)
         pyannote_start_time = time.time()
         pyannote.diarization()
         pyannote_end_time = time.time()
@@ -146,11 +153,13 @@ class ReportMaker:
         if self.check_audio_file_change():
             self.run_ASR()
             self.run_Diarization()
+        elif self.llm_model_name == 'bart':
+            self.run_ASR()
         self.run_preprocess_text()
         end_time = time.time()
         self.total_time = end_time - start_time
 
-        print(f"\nProcessing time: {self.total_time} seconds\n")
+        print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
 
 
         if self.mode == 'dev':
@@ -158,11 +167,12 @@ class ReportMaker:
             self.log()
             # Generate the report
             self.generate_report()
+            print(f"\033[1;32m\nReport generated: \033[1;34mreport/{self.llm_model_name}-{self.filename}_report_output_{self.index}.md\033[1;32m\n\033[0m")
 
         elif self.mode == 'prod':
             # Generate the report
             self.generate_report()
-
+            print(f"\033[1;32m\nReport generated: \033[1;34mreport/{self.llm_model_name}-{self.filename}_report_output_{self.index}.md\033[1;32m\n\033[0m")
         print("\n------------------------------------end run----------------------------------------------\n")
 
 if __name__ == "__main__":
@@ -170,6 +180,7 @@ if __name__ == "__main__":
     parser.add_argument('file_path', type=str, help='The path to the audio file to process')
     parser.add_argument('--mode', type=str, default='prod', help='The mode to run the script in (dev or prod)')
     parser.add_argument('--llm', type=str, required=True, help='The Large Language Model to use(gpt, gemma, mistral, bert)')
+    parser.add_argument('--lang', type=str, default='fr', help='The language of the audio file (fr or en)')
 
     args = parser.parse_args()
 

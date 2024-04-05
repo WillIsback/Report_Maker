@@ -1,6 +1,6 @@
-![poster](images/Ai_report_maker_poster.jpg)
 # AI Report Maker
-AI Report Maker is a powerful tool designed to automate the process of transcribing and summarizing meetings. It leverages state-of-the-art machine learning models to provide detailed and accurate reports.
+![poster](images/Ai_report_maker_poster.jpg)
+**AI Report Maker** is a powerful tool designed to automate the process of transcribing and **summarizing meetings**. It leverages state-of-the-art machine learning models to provide detailed and accurate reports.
 
 Here's a brief overview of how it works:
 
@@ -21,7 +21,6 @@ With AI Report Maker, you can transform lengthy meetings into concise, easy-to-r
 - [AI Report Maker](#ai-report-maker)
 - [Flow-Chart](#flow-chart)
 - [Features](#features)
-- [Future Features](#future-features)
 - [Installation](#installation)
   - [Language Model Requirements and Specifications](#language-model-requirements-and-specifications)
 - [Usage](#usage)
@@ -54,7 +53,7 @@ graph TD;
 
 ## Features
 
-### actual:
+### actual
 - Language supported: French only at the moment
 - Automatic Speech Recognition with timestamps
 - Speaker Diarization with timestamps
@@ -63,7 +62,7 @@ graph TD;
 - Generate a conclusion for the meeting
 - Generate a report in markdown format with the annotated transcription, sub-summary, and conclusion
 
-### next:
+### next
 - Multilanguage support
 - Add more Language Models to generate sub-summary and conclusion (**camembert** nlp model for french text seems promising)
 - Add a GUI to interact with the program
@@ -76,10 +75,17 @@ graph TD;
 
 ## Installation
 
-1. Clone the repository
+1. Clone the repository.
+2. create a virtual environment.
 2. Install the dependencies with `pip install -r requirements.txt`
-3. Set up your environment variables for the Hugging Face and OpenAI API keys
-4. If you want to use Mistral_AI you will need to Install `llama_cpp` according to the instructions on its [official documentation](https://link-to-llama-cpp-docs). Note: The installation of `llama_cpp` may vary depending on your distribution and whether you have a CUDA-enabled GPU.
+3. Set up your environment variables for the *Hugging Face* and *OpenAI* API keys. In root directory create a **.env** file :
+```.env
+HUGGING_FACE=your_token_here
+OPENAI_KEY=sk-your_token_here
+```
+4. run this command in the terminal `python -m spacy download fr_core_news_lg` to download french **NLP** model and `python -m spacy download fr_dep_news_trf`.
+
+5. If you want to use Mistral_AI you will need to Install `llama_cpp` according to the instructions on its [official documentation](https://link-to-llama-cpp-docs). Note: The installation of `llama_cpp` may vary depending on your distribution and whether you have a CUDA-enabled GPU.
 
 ### Language Model Requirements and Specifications
 
@@ -97,16 +103,15 @@ Please refer to the official documentation of each model for more detailed infor
 
 ## Usage
 
-Run the `main.py` script with your audio file as an argument.
-`--mode` is either `prod` (by default) for basic executions or `dev` for logs and benchmark.
-`--lm` is to choose wich large language to use, at the moment you can choose 3: <br>
+Run the `main.py` script with your audio file, mode and llm as an argument.`--mode` is either `prod` (by default) for basic executions or `dev` for logs and benchmark. Argument `--lm` is to choose wich large language to use, at the moment you can choose 3:
+
 - `gpt` based on gpt-3.5-turbo, **Not free but fast speed and highest performance**.
 - `mistral` based on the quantinze 4bits version of mistral-7b-instruct, **slow speed and poor performance**.
 - `gemma-7b` based on gemma-7b-it, **average speed but low performance**.
 - `gemma-2b` based on gemma-2b-it, **fast speed but poor performance**.
-- `bart` based on bart-large-cnn **slow speed and poor performance**.
+- `bart` based on bart-large-cnn **slow speed and ok performance on longer meeting**.
 ```bash
-python main.py /path/to/your/audio/file --mode prod --llm gemma-2b
+python main.py /path/to/your/audio/file --mode dev --llm gemma-2b
 ```
 
 This will generate a report in markdown format in the `report` directory.
@@ -114,7 +119,7 @@ This will generate a report in markdown format in the `report` directory.
 ## Evaluation
 
 
-There is **no metrics** to benchmark the result of the report generation. So a **website** is made as a platform for the **evaluation form**. The form automatically **collect responses and provide a way to view them**. Feel free to check the **online form: **https://eval-app.online/  to start rating the **Report Maker**
+There is **no metrics** to benchmark the result of the report generation. So a **website** is made as a platform for the **evaluation form**. The form automatically **collect responses and provide a way to view them**. Feel free to check the **online form: [eval-app website](https://eval-app.online/)  to start rating the **Report Maker**
 
 **Manual Evaluation**: Have human evaluators rate the quality of the summaries. This can be time-consuming but can provide valuable insights into aspects like coherence and relevance that automated metrics might miss.
 

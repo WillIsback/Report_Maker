@@ -29,12 +29,17 @@ class Whisper:
             torch_dtype=self.dtype,
             device=self.device)
 
-    def transcription(self, file_path):
+    def transcription(self, file_path, lang='fr'):
         # Perform speech recognition
         print("\n-------------------------------------------------------------------------------------\n")
         Info_message = f"Performing speech recognition and transcription on audio file: {file_path} ..."
         print(Info_message)
-        transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french"})
+        if lang == 'fr':
+            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french"})
+        elif lang == 'en':
+            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"task": "translate"})
+        elif lang == 'bart':
+            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french", "task": "translate"})
 
         # Post-process the transcription to ensure that it doesn't exceed 128 tokens
         processed_transcription_chunks = []

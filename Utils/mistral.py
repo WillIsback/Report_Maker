@@ -9,12 +9,13 @@ class Mistral:
         self.n_threads = n_threads
         self.n_gpu_layers = n_gpu_layers
         self.verbose = verbose
+        self.max_tokens = 4096
     def request(self, text, max_output_tokens=256):
-        try:  
+        try:
             print(f"\nGenerating key points with mistral for the following text ...\n")
-                
+
             assistant_msg = 'Vous êtes un assistant utile qui génère une réponse formatée avec un style markdown pour un rapport de réunion en français.'
-            
+
             prompt = "Genere un résumé du discours suivant en français:\n\n" + text + "\n\n"
             messages = [
                         {"role": "assistant", "content": assistant_msg},
@@ -25,12 +26,12 @@ class Mistral:
 
             # Calculate n_ctx as the sum of the total message tokens and the maximum output tokens
             n_ctx = total_message_tokens + max_output_tokens
-            
+
             if n_ctx >= 10000:
                 print("n_ctx is too large. Please reduce the size of your input or output.")
                 return None
-            
-            llm = Llama(model_path=self.model_path, 
+
+            llm = Llama(model_path=self.model_path,
                         chat_format=self.chat_format,
                         n_ctx=n_ctx,
                         n_threads=self.n_threads,
@@ -38,12 +39,12 @@ class Mistral:
                         max_tokens=max_output_tokens,
                         verbose=self.verbose,  # Verbose is required to pass to the callback manager
                         )  # Set chat_format according to the model you are using
-            
-            response = llm.create_chat_completion(messages)    
+
+            response = llm.create_chat_completion(messages)
             generated_text = response['choices'][0]['message']['content']
             print(f"Response generated: {generated_text}")
             return generated_text
-        
+
         except (Exception, SystemExit) as e:
             print(f"An unexpected error occurred: {e}")
             return None
