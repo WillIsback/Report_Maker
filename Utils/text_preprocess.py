@@ -1,7 +1,4 @@
 # text_preprocess.py
-"""
-@brief This module contains the functions to preprocess the text data before the report generation model can process it.
-"""
 from .anr import ANR
 from pathlib import Path
 from .mistral import Mistral
@@ -12,7 +9,7 @@ import json
 import datetime
 import yaml
 from tqdm import tqdm
-
+import math
 
 # Get the absolute path of the root directory of the project
 root_dir = Path(__file__).resolve().parent.parent
@@ -58,14 +55,20 @@ def process_all_sentences(sentences, diarization):
         json.dump(all_sentences, f, indent=4)
     return all_sentences
 
-def process_paragraph(key_sentences, llm, max_tokens):
+def process_paragraph(key_sentences, llm, max_tokens, max_token_output, overlap=3):
     paragraphs = []
+    sentence_buffer = []
     current_paragraph = {'id': 0, 'speaker': [key_sentences[0]['sentence']['speaker']], 'text': key_sentences[0]['sentence']['speaker'] + ': ' + key_sentences[0]['sentence']['text'], 'tokens_length': llm.tokenlen(key_sentences[0]['sentence']['text']), 'timestamp': key_sentences[0]['sentence']['timestamp'],'named_entities': key_sentences[0]['sentence']['named_entities']}
+    sentence_buffer.append(key_sentences[0])
+
+    total_token_size = sum(llm.tokenlen(sentence['sentence']['text']) for sentence in key_sentences)
+    Number_Paragraphs = math.ceil(total_token_size / (max_tokens-max_token_output)) if (total_token_size > (max_tokens-max_token_output)) else 1
+    max_tokens_per_paragraph = math.ceil(max_tokens*0.5 / Number_Paragraphs)
 
     for sentence in tqdm(key_sentences[1:], desc="Processing Paragraph"):
         sentence_tokens = llm.tokenlen(sentence['sentence']['text'])
 
-        if current_paragraph['tokens_length'] + sentence_tokens <= max_tokens-100:
+        if current_paragraph['tokens_length'] + sentence_tokens <= (max_tokens_per_paragraph+150): # 50 is a buffer for the instruction to summarize tokens
             # If adding the sentence won't exceed the limit, add it to the paragraph
             if sentence['sentence']['speaker'] == current_paragraph['speaker'][-1]:
                 # If the speaker is the same, just append the text
@@ -75,15 +78,24 @@ def process_paragraph(key_sentences, llm, max_tokens):
                 current_paragraph['named_entities'] += sentence['sentence']['named_entities']
             else:
                 # If the speaker changes, add new speaker identification to the text and update the speaker
-                current_paragraph['text'] += '\n' + sentence['sentence']['speaker'] + ': ' + sentence['sentence']['text']
+                current_paragraph['text'] += '\n\n' + sentence['sentence']['speaker'] + ': ' + sentence['sentence']['text']
                 current_paragraph['speaker'].append(sentence['sentence']['speaker'])
                 current_paragraph['tokens_length'] += sentence_tokens
                 current_paragraph['named_entities'] += sentence['sentence']['named_entities']
+
+            sentence_buffer.append(sentence)
+            if len(sentence_buffer) > overlap:
+                sentence_buffer.pop(0)
         else:
             # If adding the sentence would exceed the limit, save the current paragraph and start a new one
             paragraphs.append({'paragraph' : current_paragraph})
-            current_paragraph = {'id': len(paragraphs), 'speaker': [sentence['sentence']['speaker']], 'text': sentence['sentence']['speaker'] + ': ' + sentence['sentence']['text'], 'tokens_length': sentence_tokens, 'timestamp': sentence['sentence']['timestamp'], 'named_entities': sentence['sentence']['named_entities']}
-
+            current_paragraph = {'id': len(paragraphs), 'speaker': [sentence_buffer[0]['sentence']['speaker']], 'text': sentence_buffer[0]['sentence']['speaker'] + ': ' + sentence_buffer[0]['sentence']['text'], 'tokens_length': llm.tokenlen(sentence_buffer[0]['sentence']['text']), 'timestamp': sentence_buffer[0]['sentence']['timestamp'], 'named_entities': sentence_buffer[0]['sentence']['named_entities']}
+            for buffered_sentence in sentence_buffer[1:]:
+                current_paragraph['text'] += ' ' + buffered_sentence['sentence']['text']
+                current_paragraph['timestamp'][1] = buffered_sentence['sentence']['timestamp'][1]
+                current_paragraph['tokens_length'] += llm.tokenlen(buffered_sentence['sentence']['text'])
+                current_paragraph['named_entities'] += buffered_sentence['sentence']['named_entities']
+            sentence_buffer = [sentence]
     # Don't forget to add the last paragraph
     if current_paragraph['text']:
         paragraphs.append({'paragraph' : current_paragraph})
@@ -93,41 +105,6 @@ def process_paragraph(key_sentences, llm, max_tokens):
         json.dump(paragraphs, f, indent=4)
 
     return paragraphs
-
-def process_dialogue(paragraphs, llm, max_token_size):
-    sections = []
-    for i, paragraph in enumerate(tqdm(paragraphs, desc="Processing dialogue")):
-        try:
-            # Include named entities in the text to be summarized
-            text = paragraph['paragraph']['text']
-            named_entities = paragraph['paragraph']['named_entities']
-            for entity in named_entities:
-                text += ' ' + entity[0]  # assuming entity is a tuple where the first element is the entity name
-
-            sub_summary = llm.request(text, max_token_size)
-            sections.append({'summary': sub_summary})
-        except IndexError:
-            print(f"IndexError occurred at index {i} with paragraph")
-    return sections
-
-def process_conclusion(overall_transcription, llm, max_tokens, max_token_output):
-    overall_summary = ''
-    chunks = ''
-    for section in tqdm(overall_transcription, desc="Processing conclusion"):
-        new_summary = f"{chunks} \n {section['summary']}"
-        encoded_length = llm.tokenlen(new_summary)
-        if encoded_length > max_tokens-100:
-            summary = llm.summarize(str(chunks), max_token_output)
-            if summary is not None:
-                overall_summary += summary
-            chunks = section['summary']
-        else:
-            chunks = new_summary
-    if chunks:
-        summary = llm.summarize(str(chunks), max_token_output)
-        if summary is not None:
-            overall_summary += summary
-    return overall_summary
 
 def Process_transcription_and_diarization(transcription_file, rttm_file, output_file, llm_model_name):
     print("\n-------------------------------------------------------------------------------------\n")
@@ -160,12 +137,12 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
 
     # Calculate the maximum token output size
     max_token_size = llm.max_tokens
-
+    max_token_output = llm.max_output_tokens
     # Calculate the threshold_percentile based on the total token size
     threshold_percentile = (total_token_size / (64 * max_token_size)) * 100
-    threshold_percentile = max(0, min(threshold_percentile, 50))
+    threshold_percentile = max(15, min(threshold_percentile, 30))
 
-    print(f"\033[1;32m\nfor llm: \033[1;34m{llm_model_name}\033[1;32m, Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
+    print(f"\033[1;32m\nfor llm: \033[1;34m{llm_model_name}\033[1;32m, Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
 
     # process ANR
     anr = ANR(all_sentences)
@@ -173,23 +150,14 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
     key_sentences = anr.summarize_text(threshold_percentile)
     all_sentences_with_key_elements = anr.add_key_elements()
 
-    total_token_size = sum(llm.tokenlen(sentence['sentence']['text']) for sentence in key_sentences)
+    # process chunks of paragraphs sized by max_token_size - max_token_output
+    paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
+    full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)
 
-    # Calculate the max token output size
-    max_token_output = (total_token_size * 0.15)
-    # Update the max token size to account for the token output
-    max_token_size = max_token_size - max_token_output
+    # Generate the report with MapReduce strategy
+    MapReduce_report = llm.MapReduce(paragraphs, verbose=True)
 
-    print(f"\033[1;32m\nTotal Key_sentences token size: \033[1;34m{total_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m\n\033[0m")
-
-    paragraphs = process_paragraph(key_sentences, llm, max_token_size)
-    full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size)
-
-    sections = process_dialogue(paragraphs, llm, max_token_size)
-
-    overall_summary = process_conclusion(sections, llm, max_token_size, max_token_output)
-
-    output = {'conclusion': overall_summary, 'sections': sections, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
+    output = {'llm_report': MapReduce_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
 
     print("\n-------------------------------end---------------------------------------------------\n")
     with open(output_file, 'w') as f:
@@ -236,14 +204,5 @@ def generate_report(json_output, markdown_file):
         for speaker_id, name in json_output['speaker_names'].items():
             f.write(f"-{speaker_id}: {name}\n")
         f.write("### Sections\n\n")
-        for section in json_output['sections']:
-            # Check each word in the text, if it's a named entity, make it bold
-            text = ' '.join(word if word not in named_entities else f'**{word}**' for word in section['summary'].split())
-            text = ' '.join(word if not word.startswith('SPEAKER_') else f'**{word}**' for word in section['summary'].split())
-            f.write(f"{text} <br> \n\n")
-
-        # Write the conclusion
-        f.write("## Conclusion\n\n")
-        # Check each word in the text, if it's a named entity, make it bold
-        text = ' '.join(word if word not in named_entities else f'**{word}**' for word in json_output['conclusion'].split())
-        f.write(f"- {text}\n")
+        section = json_output['llm_report']
+        f.write(f"{section}\n\n")
