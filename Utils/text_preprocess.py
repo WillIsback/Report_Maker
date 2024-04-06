@@ -1,12 +1,9 @@
 # text_preprocess.py
 from .anr import ANR
 from pathlib import Path
-from .mistral import Mistral
 from .gemma import Gemma
 from .gpt import GPT
-from .bert import Camembert, BART
 import json
-import datetime
 import yaml
 from tqdm import tqdm
 import math
@@ -106,7 +103,7 @@ def process_paragraph(key_sentences, llm, max_tokens, max_token_output, overlap=
 
     return paragraphs
 
-def Process_transcription_and_diarization(transcription_file, rttm_file, output_file, llm_model_name):
+def Process_text(transcription_file, rttm_file, output_file, llm_model_name):
     print("\n-------------------------------------------------------------------------------------\n")
     print("\nPerforming text process ...")
     sentences = load_transcription(transcription_file)
@@ -117,16 +114,10 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
         config = yaml.safe_load(f)
     if llm_model_name == 'gpt':
         llm = GPT(config['large_language_models']['gpt'])
-    elif llm_model_name == 'mistral':
-        llm = Mistral(config['large_language_models']['mistral'])
     elif llm_model_name == 'gemma-7b':
         llm = Gemma(config['large_language_models']['gemma-7b'])
     elif llm_model_name == 'gemma-2b':
         llm = Gemma(config['large_language_models']['gemma-2b'])
-    elif llm_model_name == 'camembert':
-        llm = Camembert(config['large_language_models']['camembert'])
-    elif llm_model_name == 'bart':
-        llm = BART(config['large_language_models']['bart'])
     else:
         llm = Gemma(config['large_language_models']['gemma-2b'])
 
@@ -154,57 +145,18 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
 
     if total_token_size < max_token_size - max_token_output:
         llm_report = llm.summarize(all_sentences, verbose=True)
-
+        output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
     else:
-        # Generate the report with MapReduce strategy
-        llm_report = llm.Combined(paragraphs, verbose=True)
-
-    output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
-
+        # Generate the report with strategy [return MapReduce, Refine]  combined return -> MapReduce, Refine and combined and produce 3 reports
+        reports = llm.Combined(paragraphs, verbose=True)
+        if reports is None:
+            print("Failed to generate reports")
+            return
+        llm_report_MapReduce, llm_report_Refine, llm_report_combined = reports
+        output = {'llm_report_MapReduce': llm_report_MapReduce,
+                'llm_report_Refine': llm_report_Refine,
+                'llm_report_combined': llm_report_combined,
+                'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
     print("\n-------------------------------end---------------------------------------------------\n")
     with open(output_file, 'w') as f:
         json.dump(output, f)
-
-
-def generate_report(json_output, markdown_file):
-    with open(json_output, 'r') as f:
-        json_output = json.load(f)
-    trf_file_path = root_dir/'report'/'log'/'trf.json'
-    with open(trf_file_path, 'r') as f:
-        trf_results = json.load(f)
-
-    # Create a set of all named entities for quick lookup
-    named_entities = set()
-    for result in trf_results:
-        for entity in result['named_entities']:
-            named_entities.add(entity[0])
-
-    with open(markdown_file, 'w') as f:
-        # Write the title
-        date = datetime.date.today().strftime("%d/%m/%Y")
-        f.write(f"# Compte-rendu réunion {date}\n\n")
-
-        # Write the table of contents
-        f.write("## Table des matières\n\n")
-        f.write("1. [Transcription de la réunion](#Transcription-de-la-réunion)\n")
-        f.write("2. [Résumé de la réunion](#Résumé-de-la-réunion)\n")
-        f.write("3. [Conclusion](#conclusion)\n\n")
-
-        # Write the complete transcription section
-        f.write("## Transcription de la réunion\n\n")
-        f.write("<details>\n<summary>View Full Transcription</summary>\n\n")
-        for sentence in json_output['details']:
-            # Check each word in the text, if it's a named entity or a speaker, make it bold
-            text = ' '.join(word if word not in named_entities else f'**{word}**' for word in sentence['paragraph']['text'].split())
-            text = ' '.join(word if not word.startswith('SPEAKER_') else f'<br>**{word}**' for word in sentence['paragraph']['text'].split())
-            f.write(f"Timestamp : {sentence['paragraph']['timestamp']} / {sentence['paragraph']['speaker']}:<br> {text} <br> \n\n")
-        f.write("</details>\n\n")
-
-        # Write the content summary section
-        f.write("## Résumé de la réunion\n\n")
-        f.write("### Noms des participants\n\n")
-        for speaker_id, name in json_output['speaker_names'].items():
-            f.write(f"-{speaker_id}: {name}\n")
-        f.write("### Sections\n\n")
-        section = json_output['llm_report']
-        f.write(f"{section}\n\n")

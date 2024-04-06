@@ -37,9 +37,8 @@ class Whisper:
         if lang == 'fr':
             transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french"})
         elif lang == 'en':
-            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"task": "translate"})
-        elif lang == 'bart':
-            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french", "task": "translate"})
+            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "english"})
+
 
         # Post-process the transcription to ensure that it doesn't exceed 128 tokens
         processed_transcription_chunks = []
