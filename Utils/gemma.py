@@ -176,3 +176,128 @@ class Gemma:
         except (Exception, SystemExit) as e:
             print(f"An unexpected error occurred: {e}")
             return None
+
+    def Refine(self, texts, verbose=False):
+        try:
+            Num_paragraph = len(texts)
+            # Calculate max tokens for each sub-summary
+            max_tokens_per_summary = self.max_tokens
+            print(f"\nGenerating Refine strategy summary with gemma on a total of {Num_paragraph} paragraph ...\n")
+            # Clean named entities for all texts before the loop
+            for text in texts:
+                text['paragraph']['named_entities'] = CleanNamedEntities(text['paragraph']['named_entities'])
+                text['paragraph']['speaker'] += text['paragraph']['speaker']
+
+            # Loop through each text content
+            for text in tqdm(texts, desc="Generating refined summary"):
+                paragraph = text['paragraph']
+                named_entities  = paragraph['named_entities']
+                text_content = paragraph['text']
+                inputs_length = paragraph['tokens_length']
+                input_id = paragraph['id']
+                speaker_id = paragraph['speaker']
+                speaker_id = list(set(speaker_id))
+                speaker_id = ",".join(speaker_id)
+                actual_index = f"{input_id+1}/{Num_paragraph}"
+                if self.device == 'cuda':
+                        torch.manual_seed(1)
+                # If first paragraph then summarize the first paragraph with an initial prompt
+                if input_id == 0:
+                    init_prompt = [
+                            {
+                                "role": "user",
+                                "content": f"""Vous avez un segment d'une transcription audio avec les intervenants suivants : {speaker_id}.
+                                            Votre tâche est de résumer ce dialogue.
+                                            - Identifiez le sujets principaux à l'aide des entités nommées suivantes : \n\n{named_entities}.\n\n
+                                            - Fournissez une description.
+                                            Concentrez-vous sur les faits et les entités nommées.
+                                            Voici la transcription à résumer : \n\n{text_content}\n\n"""
+                            },
+                            {
+                                "role": "assistant",
+                                "content": ""
+                            }
+                        ]
+                    max_length = max_tokens_per_summary
+                    min_tokens = max_tokens_per_summary * 0.5
+                    max_new_tokens = int((inputs_length * 0.5) if (inputs_length < max_length) else min_tokens)
+                    if verbose:
+                        print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
+                        print(f"\033[1;34m\nParagraph: {actual_index}, Input token size: {inputs_length}, Max token length: {max_length},  Max new tokens: {max_new_tokens}\n\033[0m")
+                        print(f"\nname_entities : {named_entities}\n")
+                    prompt = self.pipeline.tokenizer.apply_chat_template(init_prompt, tokenize=False, add_generation_prompt=True)
+                    outputs = self.pipeline(
+                        prompt,
+                        do_sample=True,
+                        temperature=1,
+                        top_k=50,
+                        top_p=0.5,
+                        add_special_tokens=True,
+                        max_new_tokens=max_new_tokens,
+                    )
+                    init_response = (outputs[0]["generated_text"][len(prompt):])
+                    reponse_token_size = self.tokenlen(init_response)
+                    if verbose:
+                        print(f"\nResponse generated \033[1;34m{reponse_token_size}\033[1;32m token : \n\n\033[0m")
+                        print(f"{init_response}\n")
+                    existing_summary = init_response
+                elif (input_id > 0): # If not the first paragraph then summarize the paragraph with a recursive prompt
+                    recursive_prompt = [
+                            {
+                                "role": "user",
+                                "content": f"""Vous avez déjà un résumé partiel d'une transcription audio.
+                                            Votre mission est maintenant de compléter ce résumé avec une nouvelle transcriptions audio des intervenants suivants : {speaker_id}.
+                                                - Organisez les sujets en chapitres distincts.
+                                                    - Fournir une description détaillée pour chaque chapitre.
+                                                - Concentrez-vous sur les faits et les entités nommées.
+                                                    - Voici le résumé existant: \n\n{existing_summary}.\n\n
+                                                - Affinez le résumé (si besoin) en fonction des nouvelles informations ci-dessous.
+                                                    - Voici les nouvelles entités nommées : \n\n{named_entities}.\n\n
+                                                    - Voici la nouvelle transcription : \n\n{text_content}.\n\n
+                                            Avec ces nouvelles informations, affinez le résumé original et présentez le au format Markdown."""
+                            },
+                            {
+                                "role": "assistant",
+                                            "content": ""
+                            }
+                        ]
+                    max_length = max_tokens_per_summary
+                    min_tokens = max_tokens_per_summary * 0.3
+                    max_new_tokens = int((inputs_length*0.5) if (inputs_length < max_length*0.5) else min_tokens)
+                    if verbose:
+                        print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
+                        print(f"\033[1;34m\nParagraph: {actual_index}, Input token size: {inputs_length}, Max token length: {max_length},  Max new tokens: {max_new_tokens}\n\033[0m")
+                        print(f"\nname_entities : {named_entities}\n")
+                    prompt = self.pipeline.tokenizer.apply_chat_template(recursive_prompt, tokenize=False, add_generation_prompt=True)
+                    outputs = self.pipeline(
+                        prompt,
+                        do_sample=True,
+                        temperature=1,
+                        top_k=50,
+                        top_p=0.5,
+                        add_special_tokens=True,
+                        max_new_tokens=max_new_tokens,
+                    )
+                    recursive_response = (outputs[0]["generated_text"][len(prompt):])
+                    reponse_token_size = self.tokenlen(recursive_response)
+                    if verbose:
+                        print(f"\nResponse generated \033[1;34m{reponse_token_size}\033[1;32m token : \n\n\033[0m")
+                        print(f"{recursive_response}\n")
+                    existing_summary += "\n"  + recursive_response
+
+            return existing_summary
+
+        except (Exception, SystemExit) as e:
+            print(f"An unexpected error occurred: {e}")
+            return None
+
+
+    def Combine(self, MapReduce, Refine, verbose=False):
+        try:
+
+            print("\nGenerating a combined report with gemma ...\n")
+
+
+        except (Exception, SystemExit) as e:
+            print(f"An unexpected error occurred: {e}")
+            return None

@@ -145,7 +145,7 @@ def CleanNamedEntities(named_entities):
     # Set of common oral words and onomatopoeia to exclude
     common_words = {'ça', 'et oui', 'ouais', 'en bas', 'pareil', 'ah', 'oh', 'eh', 'hmm', 'huh', 'wow', 'yay', 'uh', 'ha', 'hee', 'bah', 'pff',
                     'grr', 'oops', 'ouch', 'eww', 'aww', 'yuck', 'yikes', 'phew', 'haha', 'he', 'ell', 'pam', 'poum', 'pif', 'paf', 'plouf', 'pan',
-                    'go', 'français', 'vidéo', 'dm', 'max', 'est', 'mike', 'saint-valentin', 'ouf'}
+                    'go', 'français', 'vidéo', 'dm', 'max', 'est', 'mike', 'saint-valentin', 'ouf', 'combien'}
     # Remove common words (case insensitive)
     named_entities = [entity for entity in named_entities if entity[0].lower() not in common_words]
     # Count occurrences of each entity
@@ -155,6 +155,8 @@ def CleanNamedEntities(named_entities):
     # Remove entity type and convert list to string
     top_entities = ', '.join(set(top_entities))
     return top_entities
+
+
 # Rule based idea for speaker identification:
 # Rule 3: Introduction Rule
 '''
