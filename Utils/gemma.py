@@ -13,15 +13,13 @@ load_dotenv()
 # Get the Hugging Face API key from the environment variables
 HUGGING_FACE = os.getenv('HUGGING_FACE')
 
-
-
 class Gemma:
     def __init__(self, model_id="google/gemma-2b-it", dtype=torch.float16):
         self.model_id = model_id
         self.dtype = dtype
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=HUGGING_FACE)
         self.max_tokens = 8192
-        self.max_output_tokens = self.max_tokens * 0.5
+        self.max_output_tokens = 2048
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.pipeline = pipeline(
                 "text-generation",
@@ -31,23 +29,68 @@ class Gemma:
                 token=HUGGING_FACE
             )
         self.root_dir = Path(__file__).resolve().parent.parent
-
+        self.isNameEntitiesCleaned = False
 
     def tokenlen(self, text):
         # Activate truncation and padding
         return len(self.tokenizer(text, return_tensors='pt', truncation=True, padding=True, max_length=512).to(self.device)['input_ids'][0])
 
-    def get_coef(self, Num_paragraph):
-        # Define the minimum and maximum coefficients
-        min_coef, max_coef = 0.1, 0.3
+    def summarize(self, text, verbose=False):
+        # Extract the 'text' field from each sentence and join them into a single string
+        text = ' '.join(sentence['sentence']['text'] for sentence in text)
+        subprompt = [
+                {
+                    "role": "user",
+                    "content": f"""Vous avez plusieurs segments d'une transcription audio sur divers sujets.
+                                    Votre tâche est de créer un rapport détaillé à partir de ces informations. Veuillez faire ce qui suit :
+                                    - Organisez les sujets en chapitres distincts.
+                                    - Fournissez une description détaillée pour chaque sujet, y compris ses points clés, ses implications, son contexte et ses perspectives.
+                                    - Mettez en évidence les aspects uniques de chaque sujet et comment ils contribuent à leur domaine respectif.
+                                    - Générez le texte dans un ton professionnel et formel, adapté à un rapport d'entreprise.
+                                    - Formatez le texte en Markdown.
+                                    Voici les résumés : \n\n{text}\n"""
+                },
+                {
+                    "role": "assistant",
+                    "content": """# {Titre du Sujet}
 
-        # Normalize Num_paragraph to the range [0, 1]
-        normalized_Num_paragraph = Num_paragraph / max(1, Num_paragraph)  # avoid division by zero
+                                    ## Aperçu
+                                    {Brève description du sujet}
 
-        # Calculate the coefficient
-        coef = min_coef + (max_coef - min_coef) * normalized_Num_paragraph
+                                    ## Points Clés
+                                    {Description détaillée des points clés du sujet}
 
-        return coef
+                                    ## Implications
+                                    {Explication des implications du sujet}
+
+                                    ## Contexte
+                                    {Description du contexte du sujet}
+
+                                    ## Perspectives
+                                    {Discussion sur les perspectives du sujet}
+
+                                    ## Contribution
+                                    {Explication de la manière dont le sujet contribue à son domaine respectif}"""
+                }
+            ]
+
+        prompt = self.pipeline.tokenizer.apply_chat_template(subprompt, tokenize=False, add_generation_prompt=True)
+        outputs = self.pipeline(
+            prompt,
+            do_sample=True,
+            temperature=1,
+            top_k=50,
+            top_p=0.5,
+            add_special_tokens=True,
+            max_new_tokens=self.max_output_tokens,
+        )
+        generated_response = (outputs[0]["generated_text"][len(prompt):])
+        reponse_token_size = self.tokenlen(generated_response)
+        if verbose:
+            print(f"\nResponse generated \033[1;34m{reponse_token_size}\033[1;32m token : \n\n\033[0m")
+            print(f"{generated_response}\n")
+
+        return generated_response
 
     def MapReduce(self, texts, verbose=False):
         try:
@@ -62,6 +105,8 @@ class Gemma:
             for text in texts:
                 text['paragraph']['named_entities'] = CleanNamedEntities(text['paragraph']['named_entities'])
                 list_named_entities.append(text['paragraph']['named_entities'])
+            self.isNameEntitiesCleaned = True
+
             # Loop through each text content
             for text in tqdm(texts, desc="Generating MapReduce summary"):
                 paragraph = text['paragraph']
@@ -113,7 +158,7 @@ class Gemma:
                     top_k=50,
                     top_p=0.5,
                     add_special_tokens=True,
-                    max_new_tokens=max_new_tokens,
+                    max_new_tokens=self.max_output_tokens,
                 )
                 generated_response = (outputs[0]["generated_text"][len(prompt):])
                 reponse_token_size = self.tokenlen(generated_response)
@@ -150,8 +195,8 @@ class Gemma:
                         "content": ""
                     }
                 ]
-            coef = self.get_coef(Num_paragraph)
-            max_new_tokens = int((self.max_tokens - length_text_content) * coef)
+
+            max_new_tokens = self.max_output_tokens
             if verbose:
                 print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
                 print(f"\033[1;34m\n\nOverall summary input token size :{length_text_content},  Max length tokens: {self.max_tokens},  Max new tokens: {max_new_tokens}\n\033[0m")
@@ -164,7 +209,7 @@ class Gemma:
                 top_k=50,
                 top_p=0.5,
                 add_special_tokens=True,
-                max_new_tokens=max_new_tokens,
+                max_new_tokens=self.max_output_tokens,
             )
             generated_response = (outputs[0]["generated_text"][len(prompt_combined):])
             reponse_token_size = self.tokenlen(generated_response)
@@ -184,9 +229,9 @@ class Gemma:
             max_tokens_per_summary = self.max_tokens
             print(f"\nGenerating Refine strategy summary with gemma on a total of {Num_paragraph} paragraph ...\n")
             # Clean named entities for all texts before the loop
-            for text in texts:
-                text['paragraph']['named_entities'] = CleanNamedEntities(text['paragraph']['named_entities'])
-                text['paragraph']['speaker'] += text['paragraph']['speaker']
+            if not self.isNameEntitiesCleaned:
+                for text in texts:
+                    text['paragraph']['named_entities'] = CleanNamedEntities(text['paragraph']['named_entities'])
 
             # Loop through each text content
             for text in tqdm(texts, desc="Generating refined summary"):
@@ -233,7 +278,7 @@ class Gemma:
                         top_k=50,
                         top_p=0.5,
                         add_special_tokens=True,
-                        max_new_tokens=max_new_tokens,
+                        max_new_tokens=self.max_output_tokens,
                     )
                     init_response = (outputs[0]["generated_text"][len(prompt):])
                     reponse_token_size = self.tokenlen(init_response)
@@ -276,7 +321,7 @@ class Gemma:
                         top_k=50,
                         top_p=0.5,
                         add_special_tokens=True,
-                        max_new_tokens=max_new_tokens,
+                        max_new_tokens=self.max_output_tokens,
                     )
                     recursive_response = (outputs[0]["generated_text"][len(prompt):])
                     reponse_token_size = self.tokenlen(recursive_response)
@@ -292,11 +337,45 @@ class Gemma:
             return None
 
 
-    def Combine(self, MapReduce, Refine, verbose=False):
+    def Combined(self, texts, verbose=False):
+        MapReduce = self.MapReduce(texts, verbose=verbose)
+        Refine = self.Refine(texts, verbose=verbose)
         try:
-
             print("\nGenerating a combined report with gemma ...\n")
-
+            combined_prompt = [
+                    {
+                        "role": "user",
+                        "content": f"""Vous recevez deux résumés complet de la même transcription audio.
+                                    Votre mission est maintenant de générez un compte rendu le plus juste est coherent en recoupant les informations des deux résumés.
+                                        - Organisez les sujets en chapitres distincts.
+                                            - Fournir une description détaillée pour chaque chapitre.
+                                            - Concentrez-vous sur les faits et les entités nommées.
+                                        - Réalisez un sommaire en tête de document.
+                                            - Voici le résumé issu de la method "MapReduce" : \n\n{MapReduce}.\n\n
+                                            - Voici le résumé issu de la method "Refine" : \n\n{Refine}.\n\n
+                                    Avec ces deux résumés, générez le compte rendu et présentez le au format Markdown."""
+                    },
+                    {
+                        "role": "assistant",
+                                    "content": ""
+                    }
+                ]
+            prompt = self.pipeline.tokenizer.apply_chat_template(combined_prompt, tokenize=False, add_generation_prompt=True)
+            outputs = self.pipeline(
+                prompt,
+                do_sample=True,
+                temperature=1,
+                top_k=50,
+                top_p=0.5,
+                add_special_tokens=True,
+                max_new_tokens=self.self.max_output_tokens,
+            )
+            combined_response = (outputs[0]["generated_text"][len(prompt):])
+            reponse_token_size = self.tokenlen(combined_response)
+            if verbose:
+                print(f"\nResponse generated \033[1;34m{reponse_token_size}\033[1;32m token : \n\n\033[0m")
+                print(f"{combined_response}\n")
+            return combined_response
 
         except (Exception, SystemExit) as e:
             print(f"An unexpected error occurred: {e}")

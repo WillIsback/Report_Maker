@@ -143,21 +143,23 @@ def Process_transcription_and_diarization(transcription_file, rttm_file, output_
     threshold_percentile = max(15, min(threshold_percentile, 30))
 
     print(f"\033[1;32m\nfor llm: \033[1;34m{llm_model_name}\033[1;32m, Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
-
     # process ANR
     anr = ANR(all_sentences)
     speaker_names = anr.GetSpeakerName()
     key_sentences = anr.summarize_text(threshold_percentile)
     all_sentences_with_key_elements = anr.add_key_elements()
-
     # process chunks of paragraphs sized by max_token_size - max_token_output
     paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
     full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)
 
-    # Generate the report with MapReduce strategy
-    MapReduce_report = llm.MapReduce(paragraphs, verbose=True)
+    if total_token_size < max_token_size - max_token_output:
+        llm_report = llm.summarize(all_sentences, verbose=True)
 
-    output = {'llm_report': MapReduce_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
+    else:
+        # Generate the report with MapReduce strategy
+        llm_report = llm.Combined(paragraphs, verbose=True)
+
+    output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
 
     print("\n-------------------------------end---------------------------------------------------\n")
     with open(output_file, 'w') as f:
