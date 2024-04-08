@@ -22,22 +22,31 @@ class Pyannote:
             model_id,
             use_auth_token=use_auth_token)
         self.pipeline.to(torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
+        self.audio_file = audio_file
         # Load your audio file
-        self.waveform, self.sample_rate = torchaudio.load(audio_file)
+        self.waveform, self.sample_rate = torchaudio.load(self.audio_file)
                 # Ensure waveform is 2D tensor with shape (channel, time)
         if len(self.waveform.shape) == 1:
             self.waveform = self.waveform.unsqueeze(0)
 
-    def diarization(self):
+    def diarization(self, DataSet_builder=False):
         # Perform speaker diarization
         print("\n-------------------------------------------------------------------------------------\n")
         print("\nPerforming speaker diarization on audio file ...")
         diarization = self.pipeline({"waveform": self.waveform, "sample_rate": self.sample_rate})
         # Get the absolute path of the root directory of the project
         root_dir = Path(__file__).resolve().parent.parent
+
         # Construct the absolute path of the diarization file
         diarization_file_path = root_dir / 'report' / 'log' / 'diarization.rttm'
-        print("\n-------------------------------end---------------------------------------------------\n")
         # Write the processed transcription to a file
         with diarization_file_path.open('w') as f:
             diarization.write_rttm(f)
+
+        if DataSet_builder:
+            # Construct the absolute path of the diarization file
+            diarization_file_path = root_dir / 'report' / 'dataset' / f'{self.audio_file}_diarization.rttm'
+            # Write the processed transcription to a file
+            with diarization_file_path.open('w') as f:
+                diarization.write_rttm(f)
+        print("\n-------------------------------end---------------------------------------------------\n")

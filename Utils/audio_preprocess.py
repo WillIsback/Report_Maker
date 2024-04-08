@@ -4,6 +4,9 @@
 """
 import pydub
 import hashlib
+from pathlib import Path
+# Get the absolute path of the root directory of the project
+root_dir = Path(__file__).resolve().parent.parent
 
 def get_file_hash(file_path):
     with open(file_path, 'rb') as f:
@@ -14,7 +17,7 @@ def get_file_hash(file_path):
 
 
 
-def preprocess_audio(file_path):
+def preprocess_audio(file_path, build_dataset= False):
 
     # Load the audio file
     audio = pydub.AudioSegment.from_file(file_path)
@@ -29,6 +32,9 @@ def preprocess_audio(file_path):
     preprocessed_file_path = file_path.replace('.mp3', '_preprocessed.wav')
     audio.export(preprocessed_file_path, format='wav')
 
+    if(build_dataset):
+        preprocessed_file_path = root_dir / 'report' / 'dataset' / f'{file_path}_preprocessed_mono_16khz.wav'
+        audio.export(preprocessed_file_path, format='wav')
 
     return preprocessed_file_path
 

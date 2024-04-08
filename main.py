@@ -45,10 +45,13 @@ class ReportMaker:
         self.process_time = 0
         self.total_time = 0
         self.index = 0
-
+        if self.mode == 'build_dataset':
+            build_dataset = True
+        else:
+            build_dataset = False
         filename_with_ext = os.path.basename(self.file_path)
         self.filename, _ = os.path.splitext(filename_with_ext)
-        self.audio_file = preprocess_audio(self.file_path)
+        self.audio_file = preprocess_audio(self.file_path, build_dataset=build_dataset )
         self.transcription_json = 'report/log/transcription.json'
         self.diarization_rttm = 'report/log/diarization.rttm'
         self.output_json = 'report/log/output.json'
@@ -98,23 +101,23 @@ class ReportMaker:
         print(f"\nPreprocessing audio file: {self.file_path}")
         return preprocess_audio(self.file_path)
 
-    def run_ASR(self):
+    def run_ASR(self, DataSet_builder=False):
         # Perform speech recognition and transcription
         whisper = Whisper(self.ASR_model_id)
         whisper_start_time = time.time()
         if self.lang == 'fr':
-            whisper.transcription(self.audio_file, lang='fr')
+            whisper.transcription(self.audio_file, lang='fr', DataSet_builder=DataSet_builder)
         elif self.lang == 'en':
-            whisper.transcription(self.audio_file, lang='en')
+            whisper.transcription(self.audio_file, lang='en', DataSet_builder=DataSet_builder)
 
         whisper_end_time = time.time()
         self.whisper_time = whisper_end_time - whisper_start_time
 
-    def run_Diarization(self):
+    def run_Diarization(self, DataSet_builder=False):
         #Perform speaker diarization
         pyannote = Pyannote(self.audio_file, self.diarization_model_id)
         pyannote_start_time = time.time()
-        pyannote.diarization()
+        pyannote.diarization(DataSet_builder=DataSet_builder)
         pyannote_end_time = time.time()
         self.pyannote_time = pyannote_end_time - pyannote_start_time
 
@@ -135,12 +138,11 @@ class ReportMaker:
 
         print(f"\033[1;32mRunning AI Report Maker in \033[1;34m{self.mode}\033[1;32m mode with \033[1;34m{self.device}\033[1;32m device to process the record \033[1;34m{self.filename}\033[1;32m with \033[1;34m{self.llm_model_id}\033[1;32m Large Language Model and \033[1;34m{self.ASR_model_id}\033[1;32m ASR model and \033[1;34m{self.diarization_model_id}\033[1;32m Diarization model.\033[0m")
 
-        start_time= time.time()
-        if self.check_audio_file_change():
-            self.run_ASR()
-            self.run_Diarization()
-
         if self.mode == 'dev':
+            start_time= time.time()
+            if self.check_audio_file_change():
+                self.run_ASR()
+                self.run_Diarization()
             self.run_preprocess_text()
             end_time = time.time()
             self.total_time = end_time - start_time
@@ -154,6 +156,10 @@ class ReportMaker:
                 print(f"\033[1;32m\nReport generated: \033[1;34m{file}\033[1;32m\n\033[0m")
 
         elif self.mode == 'prod':
+            start_time= time.time()
+            if self.check_audio_file_change():
+                self.run_ASR()
+                self.run_Diarization()
             self.run_preprocess_text()
             end_time = time.time()
             self.total_time = end_time - start_time
@@ -164,6 +170,10 @@ class ReportMaker:
                 print(f"\033[1;32m\nReport generated: \033[1;34m{file}\033[1;32m\n\033[0m")
 
         elif self.mode == 'build_dataset':
+            start_time= time.time()
+            if self.check_audio_file_change():
+                self.run_ASR(DataSet_builder=True)
+                self.run_Diarization(DataSet_builder=True)
             self.run_preprocess_text(DataSet_builder=True)
             end_time = time.time()
             self.total_time = end_time - start_time

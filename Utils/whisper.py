@@ -29,7 +29,7 @@ class Whisper:
             torch_dtype=self.dtype,
             device=self.device)
 
-    def transcription(self, file_path, lang='fr'):
+    def transcription(self, file_path, lang='fr', DataSet_builder=False):
         # Perform speech recognition
         print("\n-------------------------------------------------------------------------------------\n")
         Info_message = f"Performing speech recognition and transcription on audio file: {file_path} ..."
@@ -68,7 +68,17 @@ class Whisper:
 
         # Construct the absolute path of the transcription file
         transcription_file_path = root_dir / 'report' / 'log' / 'transcription.json'
-        print("\n-------------------------------end---------------------------------------------------\n")
+
         # Write the processed transcription to a file
         with transcription_file_path.open('w') as f:
             json.dump(processed_transcription_chunks, f)
+
+        if DataSet_builder:
+            # Construct the absolute path of the diarization file
+            transcription_file_path = root_dir / 'report' / 'dataset' / f'{file_path}_transcription.json'
+
+            # Write the processed transcription to a file
+            with transcription_file_path.open('w') as f:
+                json.dump(processed_transcription_chunks, f)
+
+        print("\n-------------------------------end---------------------------------------------------\n")
