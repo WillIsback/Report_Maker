@@ -19,25 +19,20 @@ class Prompts:
             },
             {
                 "role": "assistant",
-                "content": """# {Titre du Sujet}
+                        "content": """# {Titre du Sujet}
 
-                                ## Aperçu
-                                {Brève description du sujet}
+                                        ## Aperçu
+                                        {Brève description du sujet}
 
-                                ## Points Clés
-                                {Description détaillée des points clés du sujet}
+                                        ## Points Clés
+                                        {Description détaillée des points clés du sujet}
 
-                                ## Implications
-                                {Explication des implications du sujet}
+                                        ## Implications
+                                        {Explication des implications du sujet}
 
-                                ## Contexte
-                                {Description du contexte du sujet}
-
-                                ## Perspectives
-                                {Discussion sur les perspectives du sujet}
-
-                                ## Contribution
-                                {Explication de la manière dont le sujet contribue à son domaine respectif}"""
+                                        ## Contexte
+                                        {Description du contexte du sujet}
+                                                                            """
             }]
 
     @staticmethod
@@ -45,14 +40,13 @@ class Prompts:
         return [
                     {
                         "role": "user",
-                        "content": f"""Vous avez plusieurs résumés de plusieurs d'une même transcription audio.
-                                        Votre tâche est de créer un rapport détaillé à partir de ces résumés. Veuillez faire ce qui suit :
+                        "content": f"""Vous avez plusieurs rapports détaillés dans l'ordre chronologique d'une transcription.
+                                        Votre tâche est d'arrangez de manière cohérente tout les rapports détaillés en un unique document. Veuillez faire ce qui suit :
+                                        - Affinez les sujets, y compris leurs points clés, leurs implications, leurs contexte et leurs perspectives.
                                         - Organisez les sujets en chapitres distincts.
-                                        - Fournissez une description détaillée pour chaque sujet, y compris ses points clés, ses implications, son contexte et ses perspectives.
-                                        - Mettez en évidence les aspects uniques de chaque sujet et comment ils contribuent à leur domaine respectif.
                                         - Générez le texte dans un ton professionnel et formel, adapté à un rapport d'entreprise.
                                         - Formatez le texte en Markdown.
-                                        Voici les résumés : \n\n{text}\n"""
+                                        Voici les differents rapports détaillés : \n\n{text}\n"""
                     },
                     {
                         "role": "assistant",
@@ -69,12 +63,7 @@ class Prompts:
 
                                         ## Contexte
                                         {Description du contexte du sujet}
-
-                                        ## Perspectives
-                                        {Discussion sur les perspectives du sujet}
-
-                                        ## Contribution
-                                        {Explication de la manière dont le sujet contribue à son domaine respectif}"""
+                                                                            """
                     }
                 ]
 
@@ -83,15 +72,15 @@ class Prompts:
         return [
                 {
                     "role": "user",
-                    "content": f"""Vous avez un résumé existant d'un segment d'une transcription audio et de nouveaux segments de la transcription.
-                                    Votre tâche est de créer un rapport détaillé à partir du résumé existant et des nouvelles informations. Veuillez faire ce qui suit :
-                                    - Organisez les sujets en chapitres distincts.
-                                    - Fournissez une description détaillée pour chaque sujet, y compris ses points clés, ses implications, son contexte et ses perspectives.
-                                    - Mettez en évidence les aspects uniques de chaque sujet et comment ils contribuent à leur domaine respectif.
+                    "content": f"""Vous avez un rapport détaillé existant d'une transcription audio et la suite du rapport de la transcription.
+                                    Votre tâche est d'affiné le rapport détaillé existant en y incluant la suite du rapport. Veuillez faire ce qui suit :
+                                    - Mettre à jour les chapitres dans un ordre chronologique en incluant le nouveau rapport.
+                                    - Conserver les points clés, les implications, le contexte du rapport existant.
                                     - Générez le texte dans un ton professionnel et formel, adapté à un rapport d'entreprise.
                                     - Formatez le texte en Markdown.
-                                    Voici le résumé existant : \n\n{existing_summary}\n\n
-                                    Voici les nouvelles informations : \n\n{new_text}\n"""
+                                    Voici le rapport existant : \n\n{existing_summary}\n\n
+                                    - Affiné le rapport existant pour y ajouter les nouvelles informations ci-dessous:
+                                    \n\n{new_text}\n"""
                 },
                 {
                     "role": "assistant",
@@ -108,12 +97,7 @@ class Prompts:
 
                                     ## Contexte
                                     {Description du contexte du sujet}
-
-                                    ## Perspectives
-                                    {Discussion sur les perspectives du sujet}
-
-                                    ## Contribution
-                                    {Explication de la manière dont le sujet contribue à son domaine respectif}"""
+                                                                        """
                 }
             ]
 
@@ -124,13 +108,12 @@ class Prompts:
                             "role": "user",
                             "content": f"""Vous avez deux rapports d'une même transcription audio.
                                             Votre tâche est d'affinez un rapport final détaillé à partir de ces deux rapports. Veuillez faire ce qui suit :
-                                            - Réorganisez les chapitres.
-                                            - Remettre de l'ordre et de la cohérence.
-                                            - Mettez en évidence les aspects uniques de chaque chapitres, y compris ses points clés.
+                                            - Mettre à jour les chapitres dans un ordre logique.
+                                            - Mettez en évidence les aspects uniques de chaque chapitres, y compris leurs points clés.
                                             - Générez le texte dans un ton professionnel et formel, adapté à un rapport d'entreprise.
                                             - Formatez le texte en Markdown.
-                                            Voici le premier résumés : \n\n{MapReduce}\n\n
-                                            Voici le deuxième résumé : \n\n{Refine}\n"""
+                                            Voici le premier rapports : \n\n{MapReduce}\n\n
+                                            Voici le deuxième rapports : \n\n{Refine}\n"""
                         },
                         {
                             "role": "assistant",
@@ -147,11 +130,6 @@ class Prompts:
 
                                             ## Contexte
                                             {Description du contexte du sujet}
-
-                                            ## Perspectives
-                                            {Discussion sur les perspectives du sujet}
-
-                                            ## Contribution
-                                            {Explication de la manière dont le sujet contribue à son domaine respectif}"""
+                                                                                """
                         }
             ]

@@ -54,6 +54,7 @@ class ReportMaker:
         self.output_json = 'report/log/output.json'
         self.log_audio_file = f"audio_file: {self.filename}"
         self.log_file_path = 'logs/benchmark.csv'
+        self.training_data_json = 'report/log/training_data.json'
         self.current_file_hash = get_file_hash(self.audio_file)
 
     def check_audio_file_change(self):
@@ -69,29 +70,28 @@ class ReportMaker:
             return True  # File has changed
 
     def log(self):
-        if self.mode == 'dev':
-            print(f'Index: {self.index}')  # Print the index
+        print(f'Index: {self.index}')  # Print the index
 
-            # Prepare the new data
-            log_data = pd.DataFrame({
-                'index': [self.index],
-                'file_hash': [self.current_file_hash],
-                'whisper_model_id' : [self.ASR_model_id],
-                'pyannote_model_id' : [self.diarization_model_id],
-                'llm_model_id' : [self.llm_model_id],
-                'log_audio_file': [self.log_audio_file],
-                'device': [self.device],
-                'device_info': [str(self.device_info)],
-                'whisper_time': [self.whisper_time],
-                'pyannote_time': [self.pyannote_time],
-                'process_time': [self.process_time],
-                'total_time': [self.total_time]
-            })
+        # Prepare the new data
+        log_data = pd.DataFrame({
+            'index': [self.index],
+            'file_hash': [self.current_file_hash],
+            'whisper_model_id' : [self.ASR_model_id],
+            'pyannote_model_id' : [self.diarization_model_id],
+            'llm_model_id' : [self.llm_model_id],
+            'log_audio_file': [self.log_audio_file],
+            'device': [self.device],
+            'device_info': [str(self.device_info)],
+            'whisper_time': [self.whisper_time],
+            'pyannote_time': [self.pyannote_time],
+            'process_time': [self.process_time],
+            'total_time': [self.total_time]
+        })
 
 
-            log_data.to_csv(self.log_file_path, mode='a', header=not os.path.exists(self.log_file_path), index=False)
+        log_data.to_csv(self.log_file_path, mode='a', header=not os.path.exists(self.log_file_path), index=False)
 
-            plot(self.log_file_path)
+        plot(self.log_file_path)
 
     def preprocess_audio(self):
         # Preprocess the audio file:
@@ -118,11 +118,11 @@ class ReportMaker:
         pyannote_end_time = time.time()
         self.pyannote_time = pyannote_end_time - pyannote_start_time
 
-    def run_preprocess_text(self):
+    def run_preprocess_text(self, DataSet_builder=False):
         # combine transcription and diarization
         print("\nProcessing, combining transcription and diarization")
         process_start_time = time.time()
-        Process_text(self.transcription_json, self.diarization_rttm, self.output_json, self.llm_model_name)
+        Process_text(self.transcription_json, self.diarization_rttm, self.output_json, self.llm_model_name, DataSet_builder=DataSet_builder)
         process_end_time = time.time()
         self.process_time = process_end_time - process_start_time
 
@@ -130,35 +130,22 @@ class ReportMaker:
         # Generate the report
         markdown_files = generate_report(self.output_json, f'report/markdown/{self.llm_model_name}-{self.filename}_report_output_{self.index}.md')
         return markdown_files
-    def PrintHeader(self):
-        print("\033[1;34m\n-------------------------------------------------------------------------------------\n\033[0m")
-        print("""
-        \033[1;32m
-        ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ███╗   ███╗ █████╗ ██╗  ██╗███████╗██████╗
-        ██╔══██╗██╔════╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ████╗ ████║██╔══██╗██║ ██╔╝██╔════╝██╔══██╗
-        ██████╔╝█████╗  ██████╔╝██║   ██║██████╔╝   ██║       ██╔████╔██║███████║█████╔╝ █████╗  ██████╔╝
-        ██╔══██╗██╔══╝  ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██║╚██╔╝██║██╔══██║██╔═██╗ ██╔══╝  ██╔══██╗
-        ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██║ ╚═╝ ██║██║  ██║██║  ██╗███████╗██║  ██║
-        ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚
-        \033[0m
-        """)
-        print(f"\033[1;32mRunning AI Report Maker in \033[1;34m{self.mode}\033[1;32m mode with \033[1;34m{self.device}\033[1;32m device to process the record \033[1;34m{self.filename}\033[1;32m with \033[1;34m{self.llm_model_id}\033[1;32m Large Language Model and \033[1;34m{self.ASR_model_id}\033[1;32m ASR model and \033[1;34m{self.diarization_model_id}\033[1;32m Diarization model.\033[0m")
-        print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
 
     def run(self):
-        self.PrintHeader()
+
+        print(f"\033[1;32mRunning AI Report Maker in \033[1;34m{self.mode}\033[1;32m mode with \033[1;34m{self.device}\033[1;32m device to process the record \033[1;34m{self.filename}\033[1;32m with \033[1;34m{self.llm_model_id}\033[1;32m Large Language Model and \033[1;34m{self.ASR_model_id}\033[1;32m ASR model and \033[1;34m{self.diarization_model_id}\033[1;32m Diarization model.\033[0m")
+
         start_time= time.time()
         if self.check_audio_file_change():
             self.run_ASR()
             self.run_Diarization()
-        self.run_preprocess_text()
-        end_time = time.time()
-        self.total_time = end_time - start_time
-
-        print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
-
 
         if self.mode == 'dev':
+            self.run_preprocess_text()
+            end_time = time.time()
+            self.total_time = end_time - start_time
+            print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
+
             # Log the results
             self.log()
             # Generate the report
@@ -167,21 +154,52 @@ class ReportMaker:
                 print(f"\033[1;32m\nReport generated: \033[1;34m{file}\033[1;32m\n\033[0m")
 
         elif self.mode == 'prod':
+            self.run_preprocess_text()
+            end_time = time.time()
+            self.total_time = end_time - start_time
+            print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
             # Generate the report
             markdown_files = self.generate_report()
             for file in markdown_files:
                 print(f"\033[1;32m\nReport generated: \033[1;34m{file}\033[1;32m\n\033[0m")
+
+        elif self.mode == 'build_dataset':
+            self.run_preprocess_text(DataSet_builder=True)
+            end_time = time.time()
+            self.total_time = end_time - start_time
+            # Log the results
+            self.log()
+            print(f"\033[1;32m\nTraining dataset generated: \033[1;34m{self.training_data_json}\033[1;32m\n\033[0m")
+            print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
 
         print("\n------------------------------------end run----------------------------------------------\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process an audio file and generate a report.')
     parser.add_argument('file_path', type=str, help='The path to the audio file to process')
-    parser.add_argument('--mode', type=str, default='prod', help='The mode to run the script in (dev or prod)')
-    parser.add_argument('--llm', type=str, required=True, help='The Large Language Model to use(gpt, gemma-7b, gemma-2b)')
+    parser.add_argument('--mode', type=str, default='prod', help='The mode to run the script in (dev, prod, or build_dataset)')
+    parser.add_argument('--llm', type=str, default='gpt', help='The Large Language Model to use(gpt, gemma-7b, gemma-2b)')
     parser.add_argument('--lang', type=str, default='fr', help='The language of the audio file (fr or en)')
 
     args = parser.parse_args()
 
-    report_maker = ReportMaker(args.file_path, args.mode, args.llm)
+    # Make 'llm' required if 'mode' is not 'build_dataset'
+    if args.mode != 'build_dataset' and args.llm == 'gpt':
+        parser.error("--llm is required when mode is not 'build_dataset'")
+
+
+    print("\033[1;34m\n-------------------------------------------------------------------------------------\n\033[0m")
+    print("""
+    \033[1;32m
+    ██████╗ ███████╗██████╗  ██████╗ ██████╗ ████████╗    ███╗   ███╗ █████╗ ██╗  ██╗███████╗██████╗
+    ██╔══██╗██╔════╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝    ████╗ ████║██╔══██╗██║ ██╔╝██╔════╝██╔══██╗
+    ██████╔╝█████╗  ██████╔╝██║   ██║██████╔╝   ██║       ██╔████╔██║███████║█████╔╝ █████╗  ██████╔╝
+    ██╔══██╗██╔══╝  ██╔═══╝ ██║   ██║██╔══██╗   ██║       ██║╚██╔╝██║██╔══██║██╔═██╗ ██╔══╝  ██╔══██╗
+    ██║  ██║███████╗██║     ╚██████╔╝██║  ██║   ██║       ██║ ╚═╝ ██║██║  ██║██║  ██╗███████╗██║  ██║
+    ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚
+    \033[0m
+    """)
+    print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
+
+    report_maker = ReportMaker(args.file_path, args.mode, args.llm, args.lang)
     report_maker.run()

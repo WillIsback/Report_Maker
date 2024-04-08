@@ -3,10 +3,10 @@ from .anr import ANR
 from pathlib import Path
 from .gemma import Gemma
 from .gpt import GPT
+from .summarize_dataset_builder import summarize_dataset_builder
 import json
 import yaml
 from tqdm import tqdm
-import math
 
 # Get the absolute path of the root directory of the project
 root_dir = Path(__file__).resolve().parent.parent
@@ -58,14 +58,10 @@ def process_paragraph(key_sentences, llm, max_tokens, max_token_output, overlap=
     current_paragraph = {'id': 0, 'speaker': [key_sentences[0]['sentence']['speaker']], 'text': key_sentences[0]['sentence']['speaker'] + ': ' + key_sentences[0]['sentence']['text'], 'tokens_length': llm.tokenlen(key_sentences[0]['sentence']['text']), 'timestamp': key_sentences[0]['sentence']['timestamp'],'named_entities': key_sentences[0]['sentence']['named_entities']}
     sentence_buffer.append(key_sentences[0])
 
-    total_token_size = sum(llm.tokenlen(sentence['sentence']['text']) for sentence in key_sentences)
-    Number_Paragraphs = math.ceil(total_token_size / (max_tokens-max_token_output)) if (total_token_size > (max_tokens-max_token_output)) else 1
-    max_tokens_per_paragraph = math.ceil(max_tokens*0.5 / Number_Paragraphs)
-
     for sentence in tqdm(key_sentences[1:], desc="Processing Paragraph"):
         sentence_tokens = llm.tokenlen(sentence['sentence']['text'])
 
-        if current_paragraph['tokens_length'] + sentence_tokens <= (max_tokens_per_paragraph+150): # 50 is a buffer for the instruction to summarize tokens
+        if current_paragraph['tokens_length'] + sentence_tokens <= (max_tokens-max_token_output+150): # 50 is a buffer for the instruction to summarize tokens
             # If adding the sentence won't exceed the limit, add it to the paragraph
             if sentence['sentence']['speaker'] == current_paragraph['speaker'][-1]:
                 # If the speaker is the same, just append the text
@@ -103,60 +99,91 @@ def process_paragraph(key_sentences, llm, max_tokens, max_token_output, overlap=
 
     return paragraphs
 
-def Process_text(transcription_file, rttm_file, output_file, llm_model_name):
+def Process_text(transcription_file, rttm_file, output_file, llm_model_name, DataSet_builder=False):
     print("\n-------------------------------------------------------------------------------------\n")
     print("\nPerforming text process ...")
     sentences = load_transcription(transcription_file)
     diarization = load_diarization(rttm_file)
 
-    # Load the configuration file and initialize the LLM model
-    with open('Utils/config/config.yaml', 'r') as f:
-        config = yaml.safe_load(f)
-    if llm_model_name == 'gpt':
-        llm = GPT(config['large_language_models']['gpt'])
-    elif llm_model_name == 'gemma-7b':
-        llm = Gemma(config['large_language_models']['gemma-7b'])
-    elif llm_model_name == 'gemma-2b':
-        llm = Gemma(config['large_language_models']['gemma-2b'])
+    if not DataSet_builder:
+        # Load the configuration file and initialize the LLM model
+        with open('Utils/config/config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+        if llm_model_name == 'gpt':
+            llm = GPT(config['large_language_models']['gpt'])
+        elif llm_model_name == 'gemma-7b':
+            llm = Gemma(config['large_language_models']['gemma-7b'])
+        elif llm_model_name == 'gemma-2b':
+            llm = Gemma(config['large_language_models']['gemma-2b'])
+        else:
+            llm = Gemma(config['large_language_models']['gemma-2b'])
+
+        all_sentences = process_all_sentences(sentences, diarization)
+
+        # Calculate the total token size of all sentences
+        total_token_size = sum(llm.tokenlen(sentence['sentence']['text']) for sentence in all_sentences)
+
+        # Calculate the maximum token output size
+        max_token_size = llm.max_tokens
+        max_token_output = llm.max_output_tokens
+        # Calculate the threshold_percentile based on the total token size
+        threshold_percentile = (total_token_size / (((max_token_size / max_token_output)-1)*(max_token_size-max_token_output))) * 10
+        threshold_percentile = max(15, min(threshold_percentile, 70))
+
+
+        print(f"\033[1;32m\nfor llm: \033[1;34m{config['large_language_models'][llm_model_name]}\033[1;32m, Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, NER Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
+        # process ANR
+        anr = ANR(all_sentences)
+        speaker_names = anr.GetSpeakerName()
+        key_sentences = anr.summarize_text(threshold_percentile)
+        all_sentences_with_key_elements = anr.add_key_elements()
+        # process chunks of paragraphs sized by max_token_size - max_token_output
+        paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
+        full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)
+
+        if total_token_size < max_token_size - max_token_output:
+            llm_report = llm.summarize(all_sentences, verbose=True)
+            output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
+        else:
+            # Generate the report with strategy [return MapReduce, Refine]  combined return -> MapReduce, Refine and combined and produce 3 reports
+            reports = llm.MapReduce(paragraphs, verbose=True)
+            if reports is None:
+                print("Failed to generate reports")
+                return
+            llm_report_MapReduce = reports
+            output = {'llm_report_MapReduce': llm_report_MapReduce,
+                    'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
+        print("\n-------------------------------end---------------------------------------------------\n")
+        with open(output_file, 'w') as f:
+            json.dump(output, f)
     else:
-        llm = Gemma(config['large_language_models']['gemma-2b'])
+        with open('Utils/config/config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+        llm = summarize_dataset_builder(config['large_language_models']['gpt'])
 
-    all_sentences = process_all_sentences(sentences, diarization)
+        all_sentences = process_all_sentences(sentences, diarization)
 
-    # Calculate the total token size of all sentences
-    total_token_size = sum(llm.tokenlen(sentence['sentence']['text']) for sentence in all_sentences)
+        # Calculate the total token size of all sentences
+        total_token_size = sum(llm.tokenlen(sentence['sentence']['text']) for sentence in all_sentences)
 
-    # Calculate the maximum token output size
-    max_token_size = llm.max_tokens
-    max_token_output = llm.max_output_tokens
-    # Calculate the threshold_percentile based on the total token size
-    threshold_percentile = (total_token_size / (64 * max_token_size)) * 100
-    threshold_percentile = max(15, min(threshold_percentile, 30))
+        # Calculate the maximum token output size
+        max_token_size = llm.max_tokens
+        max_token_output = llm.max_output_tokens
+        # Calculate the threshold_percentile based on the total token size
+        threshold_percentile = (total_token_size / (((max_token_size / max_token_output)-1)*(max_token_size-max_token_output))) * 10
+        threshold_percentile = max(15, min(threshold_percentile, 70))
 
-    print(f"\033[1;32m\nfor llm: \033[1;34m{llm_model_name}\033[1;32m, Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
-    # process ANR
-    anr = ANR(all_sentences)
-    speaker_names = anr.GetSpeakerName()
-    key_sentences = anr.summarize_text(threshold_percentile)
-    all_sentences_with_key_elements = anr.add_key_elements()
-    # process chunks of paragraphs sized by max_token_size - max_token_output
-    paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
-    full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)
 
-    if total_token_size < max_token_size - max_token_output:
-        llm_report = llm.summarize(all_sentences, verbose=True)
-        output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
-    else:
-        # Generate the report with strategy [return MapReduce, Refine]  combined return -> MapReduce, Refine and combined and produce 3 reports
-        reports = llm.Combined(paragraphs, verbose=True)
-        if reports is None:
-            print("Failed to generate reports")
-            return
-        llm_report_MapReduce, llm_report_Refine, llm_report_combined = reports
-        output = {'llm_report_MapReduce': llm_report_MapReduce,
-                'llm_report_Refine': llm_report_Refine,
-                'llm_report_combined': llm_report_combined,
-                'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
-    print("\n-------------------------------end---------------------------------------------------\n")
-    with open(output_file, 'w') as f:
-        json.dump(output, f)
+        print(f"\033[1;32m\nBuilding dataset with llm: \033[1;34m{config['large_language_models']['gpt']}\033[1;32m, with config such as --> Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, NER Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
+        # process ANR
+        anr = ANR(all_sentences)
+        speaker_names = anr.GetSpeakerName()
+        key_sentences = anr.summarize_text(threshold_percentile)
+        # process chunks of paragraphs sized by max_token_size - max_token_output
+        paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
+
+        if total_token_size < max_token_size - max_token_output:
+            llm.summarize_dataset(all_sentences, verbose=True)
+        else:
+            llm.MapReduce_dataset(paragraphs, verbose=True)
+        print("\n-------------------------------end---------------------------------------------------\n")

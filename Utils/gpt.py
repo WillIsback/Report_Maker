@@ -23,6 +23,29 @@ class GPT:
     def tokenlen(self, text):
         return len(self.tokenizer.encode(text))
 
+    def split_text(self, text, mark="sous-résumé"):
+        max_size = self.max_size
+        # Split the text by the "sous-résumé" mark
+        chunks = text.split(mark)
+        # Initialize the list of split texts and the current chunk
+        split_texts = []
+        current_chunk = ""
+        # Iterate over the chunks
+        for chunk in chunks:
+            # If adding the next chunk does not exceed the maximum size
+            if len(current_chunk) + len(chunk) <= max_size:
+                # Add the chunk to the current chunk
+                current_chunk += mark + chunk
+            else:
+                # If the current chunk is not empty, add it to the list of split texts
+                if current_chunk:
+                    split_texts.append(current_chunk)
+                # Start a new chunk with the current chunk
+                current_chunk = mark + chunk
+        # If the last chunk is not empty, add it to the list of split texts
+        if current_chunk:
+            split_texts.append(current_chunk)
+        return split_texts
 
     def summarize(self, text, verbose=False):
         # Check if 'text' is a list of dictionaries with a 'sentence' field that contains a 'text' field
