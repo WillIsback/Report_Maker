@@ -3,6 +3,8 @@ import torch
 from pathlib import Path
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import json
+import librosa
+import numpy as np
 
 class Whisper:
     def __init__(self, model_id="openai/whisper-large-v3", dtype=torch.float16):
@@ -30,14 +32,19 @@ class Whisper:
             device=self.device)
 
     def transcription(self, file_path, lang='fr', DataSet_builder=False):
+        file_path = Path(file_path)
+        # Load the audio file into a numpy array
+        audio, _ = librosa.load(file_path, sr=None)
+        audio = np.asarray(audio)
+
         # Perform speech recognition
         print("\n-------------------------------------------------------------------------------------\n")
         Info_message = f"Performing speech recognition and transcription on audio file: {file_path} ..."
         print(Info_message)
         if lang == 'fr':
-            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "french"})
+            transcription = self.pipe(audio, return_timestamps=True, generate_kwargs={"language": "french"})
         elif lang == 'en':
-            transcription = self.pipe(file_path, return_timestamps=True, generate_kwargs={"language": "english"})
+            transcription = self.pipe(audio, return_timestamps=True, generate_kwargs={"language": "english"})
 
 
         # Post-process the transcription to ensure that it doesn't exceed 128 tokens
@@ -75,7 +82,7 @@ class Whisper:
 
         if DataSet_builder:
             # Construct the absolute path of the diarization file
-            transcription_file_path = root_dir / 'report' / 'dataset' / f'{file_path}_transcription.json'
+            transcription_file_path = root_dir / 'report' / 'dataset' / f'{file_path.stem}_transcription.json'
 
             # Write the processed transcription to a file
             with transcription_file_path.open('w') as f:

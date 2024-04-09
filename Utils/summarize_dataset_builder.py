@@ -40,7 +40,7 @@ class summarize_dataset_builder:
             f.write('\n')
 
     def tokenlen(self, text):
-        return len(self.tokenizer.encode(text))
+        return len(self.tokenizer.encode(text, disallowed_special=()))
 
     def split_text(self, text, mark="sous-résumé"):
         max_size = self.max_size

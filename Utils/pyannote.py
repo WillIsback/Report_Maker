@@ -22,7 +22,7 @@ class Pyannote:
             model_id,
             use_auth_token=use_auth_token)
         self.pipeline.to(torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
-        self.audio_file = audio_file
+        self.audio_file = Path(audio_file)
         # Load your audio file
         self.waveform, self.sample_rate = torchaudio.load(self.audio_file)
                 # Ensure waveform is 2D tensor with shape (channel, time)
@@ -45,7 +45,7 @@ class Pyannote:
 
         if DataSet_builder:
             # Construct the absolute path of the diarization file
-            diarization_file_path = root_dir / 'report' / 'dataset' / f'{self.audio_file}_diarization.rttm'
+            diarization_file_path = root_dir / 'report' / 'dataset' / f'{self.audio_file.stem}_diarization.rttm'
             # Write the processed transcription to a file
             with diarization_file_path.open('w') as f:
                 diarization.write_rttm(f)

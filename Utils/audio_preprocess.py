@@ -18,7 +18,8 @@ def get_file_hash(file_path):
 
 
 def preprocess_audio(file_path, build_dataset= False):
-
+    # Convert file_path to a pathlib.Path object
+    file_path = Path(file_path)
     # Load the audio file
     audio = pydub.AudioSegment.from_file(file_path)
 
@@ -28,12 +29,13 @@ def preprocess_audio(file_path, build_dataset= False):
     # Resample to 16kHz
     audio = audio.set_frame_rate(16000)
 
-    # Export the preprocessed audio
-    preprocessed_file_path = file_path.replace('.mp3', '_preprocessed.wav')
-    audio.export(preprocessed_file_path, format='wav')
-
     if(build_dataset):
-        preprocessed_file_path = root_dir / 'report' / 'dataset' / f'{file_path}_preprocessed_mono_16khz.wav'
+        preprocessed_file_path = root_dir / 'report' / 'dataset' / f'{file_path.stem}_preprocessed_mono_16khz.wav'
+        # Create the directory if it doesn't exist
+        preprocessed_file_path.parent.mkdir(parents=True, exist_ok=True)
+        audio.export(preprocessed_file_path, format='wav')
+    else:
+        preprocessed_file_path = file_path.replace('.mp3', '_preprocessed.wav')
         audio.export(preprocessed_file_path, format='wav')
 
     return preprocessed_file_path

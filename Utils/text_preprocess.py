@@ -99,12 +99,12 @@ def process_paragraph(key_sentences, llm, max_tokens, max_token_output, overlap=
 
     return paragraphs
 
-def Process_text(transcription_file, rttm_file, output_file, llm_model_name, DataSet_builder=False):
+def Process_text(transcription_file, rttm_file, output_file, llm_model_name, DataSet_builder=False, verbose=False):
     print("\n-------------------------------------------------------------------------------------\n")
     print("\nPerforming text process ...")
     sentences = load_transcription(transcription_file)
     diarization = load_diarization(rttm_file)
-
+    verbose = verbose
     if not DataSet_builder:
         # Load the configuration file and initialize the LLM model
         with open('Utils/config/config.yaml', 'r') as f:
@@ -142,11 +142,11 @@ def Process_text(transcription_file, rttm_file, output_file, llm_model_name, Dat
         full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)
 
         if total_token_size < max_token_size - max_token_output:
-            llm_report = llm.summarize(all_sentences, verbose=True)
+            llm_report = llm.summarize(all_sentences, verbose=verbose)
             output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
         else:
             # Generate the report with strategy [return MapReduce, Refine]  combined return -> MapReduce, Refine and combined and produce 3 reports
-            reports = llm.MapReduce(paragraphs, verbose=True)
+            reports = llm.MapReduce(paragraphs, verbose=verbose)
             if reports is None:
                 print("Failed to generate reports")
                 return
@@ -183,7 +183,7 @@ def Process_text(transcription_file, rttm_file, output_file, llm_model_name, Dat
         paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
 
         if total_token_size < max_token_size - max_token_output:
-            llm.summarize_dataset(all_sentences, verbose=True)
+            llm.summarize_dataset(all_sentences, verbose=verbose)
         else:
-            llm.MapReduce_dataset(paragraphs, verbose=True)
+            llm.MapReduce_dataset(paragraphs, verbose=verbose)
         print("\n-------------------------------end---------------------------------------------------\n")

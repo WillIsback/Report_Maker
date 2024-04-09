@@ -19,11 +19,12 @@ from Utils import preprocess_audio, get_file_hash, Process_text, generate_report
 import pandas as pd
 
 class ReportMaker:
-    def __init__(self, file_path, mode, llm_model_name, lang='fr'):
+    def __init__(self, file_path, mode, llm_model_name, lang='fr', verbose=False):
         self.file_path = file_path
         self.mode = mode
         self.llm_model_name = llm_model_name
         self.lang = lang
+        self.verbose = verbose
         # Load the configuration file
         with open('Utils/config/config.yaml', 'r') as f:
             self.config = yaml.safe_load(f)
@@ -125,7 +126,7 @@ class ReportMaker:
         # combine transcription and diarization
         print("\nProcessing, combining transcription and diarization")
         process_start_time = time.time()
-        Process_text(self.transcription_json, self.diarization_rttm, self.output_json, self.llm_model_name, DataSet_builder=DataSet_builder)
+        Process_text(self.transcription_json, self.diarization_rttm, self.output_json, self.llm_model_name, DataSet_builder=DataSet_builder, verbose=self.verbose)
         process_end_time = time.time()
         self.process_time = process_end_time - process_start_time
 
@@ -190,7 +191,7 @@ if __name__ == "__main__":
     parser.add_argument('--mode', type=str, default='prod', help='The mode to run the script in (dev, prod, or build_dataset)')
     parser.add_argument('--llm', type=str, default='gpt', help='The Large Language Model to use(gpt, gemma-7b, gemma-2b)')
     parser.add_argument('--lang', type=str, default='fr', help='The language of the audio file (fr or en)')
-
+    parser.add_argument('--verbose', type=bool, default=False, help='Print the output of the subprocess')
     args = parser.parse_args()
 
     # Make 'llm' required if 'mode' is not 'build_dataset'
