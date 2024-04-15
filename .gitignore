@@ -4,5 +4,6 @@
 model
 **/__pycache__/
 test
-
+_*
+.*
 !dummy.txt

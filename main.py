@@ -60,6 +60,7 @@ class ReportMaker:
         self.log_file_path = 'logs/benchmark.csv'
         self.training_data_json = 'report/log/training_data.json'
         self.current_file_hash = get_file_hash(self.audio_file)
+        self.output_report = f'report/markdown/{self.filename}.md'
 
     def check_audio_file_change(self):
         if os.path.exists(self.log_file_path):
@@ -110,7 +111,7 @@ class ReportMaker:
             whisper.transcription(self.audio_file, lang='fr', DataSet_builder=DataSet_builder)
         elif self.lang == 'en':
             whisper.transcription(self.audio_file, lang='en', DataSet_builder=DataSet_builder)
-
+        whisper.__delete__()
         whisper_end_time = time.time()
         self.whisper_time = whisper_end_time - whisper_start_time
 
@@ -119,6 +120,7 @@ class ReportMaker:
         pyannote = Pyannote(self.audio_file, self.diarization_model_id)
         pyannote_start_time = time.time()
         pyannote.diarization(DataSet_builder=DataSet_builder)
+        pyannote.__delete__()
         pyannote_end_time = time.time()
         self.pyannote_time = pyannote_end_time - pyannote_start_time
 
@@ -126,13 +128,19 @@ class ReportMaker:
         # combine transcription and diarization
         print("\nProcessing, combining transcription and diarization")
         process_start_time = time.time()
-        Process_text(self.transcription_json, self.diarization_rttm, self.output_json, self.llm_model_name, DataSet_builder=DataSet_builder, verbose=self.verbose)
+        llm_report, speaker_names, transcription = Process_text(self.transcription_json,
+                                                                self.diarization_rttm,
+                                                                self.output_json,
+                                                                self.llm_model_name,
+                                                                DataSet_builder=DataSet_builder,
+                                                                verbose=self.verbose)
         process_end_time = time.time()
         self.process_time = process_end_time - process_start_time
+        return llm_report, speaker_names, transcription
 
-    def generate_report(self):
+    def generate_report(self, transcription, resume, DataSet_builder=False):
         # Generate the report
-        markdown_files = generate_report(self.output_json, f'report/markdown/{self.llm_model_name}-{self.filename}_report_output_{self.index}.md')
+        markdown_files = generate_report(transcription, self.output_report, self.filename, resume)
         return markdown_files
 
     def run(self):
@@ -144,7 +152,8 @@ class ReportMaker:
             if self.check_audio_file_change():
                 self.run_ASR()
                 self.run_Diarization()
-            self.run_preprocess_text()
+
+            llm_report, speaker_names, transcription = self.run_preprocess_text()
             end_time = time.time()
             self.total_time = end_time - start_time
             print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
@@ -152,23 +161,21 @@ class ReportMaker:
             # Log the results
             self.log()
             # Generate the report
-            markdown_files = self.generate_report()
-            for file in markdown_files:
-                print(f"\033[1;32m\nReport generated: \033[1;34m{file}\033[1;32m\n\033[0m")
+            markdown_files = self.generate_report(transcription, llm_report)
+            print(f"\033[1;32m\nReport generated: \033[1;34m{markdown_files}\033[1;32m\n\033[0m")
 
         elif self.mode == 'prod':
             start_time= time.time()
             if self.check_audio_file_change():
                 self.run_ASR()
                 self.run_Diarization()
-            self.run_preprocess_text()
+            llm_report, speaker_names, full_transcription_paragraphs_with_key_elements = self.run_preprocess_text()
             end_time = time.time()
             self.total_time = end_time - start_time
             print(f"\nProcessing time: \033[1;34m{self.total_time}\033[1;32m seconds\n\033[0m")
             # Generate the report
-            markdown_files = self.generate_report()
-            for file in markdown_files:
-                print(f"\033[1;32m\nReport generated: \033[1;34m{file}\033[1;32m\n\033[0m")
+            markdown_files = self.generate_report(transcription, llm_report)
+            print(f"\033[1;32m\nReport generated: \033[1;34m{markdown_files}\033[1;32m\n\033[0m")
 
         elif self.mode == 'build_dataset':
             start_time= time.time()
@@ -189,9 +196,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process an audio file and generate a report.')
     parser.add_argument('file_path', type=str, help='The path to the audio file to process')
     parser.add_argument('--mode', type=str, default='prod', help='The mode to run the script in (dev, prod, or build_dataset)')
-    parser.add_argument('--llm', type=str, default='gpt', help='The Large Language Model to use(gpt, gemma-7b, gemma-2b)')
+    parser.add_argument('--llm', type=str, default='gpt', help='The Large Language Model to use(gpt, gemma, fast-gemma)')
     parser.add_argument('--lang', type=str, default='fr', help='The language of the audio file (fr or en)')
-    parser.add_argument('--verbose', type=bool, default=False, help='Print the output of the subprocess')
+    parser.add_argument('--verbose', action='store_true', help='Print the output of the subprocess')
     args = parser.parse_args()
 
     # Make 'llm' required if 'mode' is not 'build_dataset'
@@ -212,5 +219,5 @@ if __name__ == "__main__":
     """)
     print("\033[1;34m\n-------------------------------------------------------------------------------------\n\n\033[0m")
 
-    report_maker = ReportMaker(args.file_path, args.mode, args.llm, args.lang)
+    report_maker = ReportMaker(args.file_path, args.mode, args.llm, args.lang, args.verbose)
     report_maker.run()

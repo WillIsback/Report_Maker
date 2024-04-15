@@ -5,7 +5,7 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 import json
 import librosa
 import numpy as np
-
+import gc
 class Whisper:
     def __init__(self, model_id="openai/whisper-large-v3", dtype=torch.float16):
         self.model_id = model_id
@@ -30,6 +30,13 @@ class Whisper:
             return_timestamps=True,
             torch_dtype=self.dtype,
             device=self.device)
+
+    def __delete__(self):
+        del self.model
+        gc.collect()
+        torch.cuda.empty_cache()
+        del self.processor
+        del self.pipe
 
     def transcription(self, file_path, lang='fr', DataSet_builder=False):
         file_path = Path(file_path)
@@ -87,5 +94,6 @@ class Whisper:
             # Write the processed transcription to a file
             with transcription_file_path.open('w') as f:
                 json.dump(processed_transcription_chunks, f)
+
 
         print("\n-------------------------------end---------------------------------------------------\n")

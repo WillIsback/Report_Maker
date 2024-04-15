@@ -1,7 +1,7 @@
 # text_preprocess.py
 from .anr import ANR
 from pathlib import Path
-from .gemma import Gemma
+from .gemma import Gemma, FastGemma
 from .gpt import GPT
 from .summarize_dataset_builder import summarize_dataset_builder
 import json
@@ -111,12 +111,16 @@ def Process_text(transcription_file, rttm_file, output_file, llm_model_name, Dat
             config = yaml.safe_load(f)
         if llm_model_name == 'gpt':
             llm = GPT(config['large_language_models']['gpt'])
-        elif llm_model_name == 'gemma-7b':
-            llm = Gemma(config['large_language_models']['gemma-7b'])
-        elif llm_model_name == 'gemma-2b':
-            llm = Gemma(config['large_language_models']['gemma-2b'])
+        elif llm_model_name == 'gemma':
+            llm = Gemma(config['large_language_models']['gemma'])
+        elif llm_model_name == 'fast-gemma':
+            try:
+                llm = FastGemma()
+            except Exception as e:
+                print(f"\n\nFailed to load FastGemma wit error {e}, falling back to Gemma\n\n")
+                llm = Gemma(config['large_language_models']['gemma'])
         else:
-            llm = Gemma(config['large_language_models']['gemma-2b'])
+            llm = Gemma(config['large_language_models']['gemma'])
 
         all_sentences = process_all_sentences(sentences, diarization)
 
@@ -129,7 +133,7 @@ def Process_text(transcription_file, rttm_file, output_file, llm_model_name, Dat
         # Calculate the threshold_percentile based on the total token size
         threshold_percentile = (total_token_size / (((max_token_size / max_token_output)-1)*(max_token_size-max_token_output))) * 10
         threshold_percentile = max(15, min(threshold_percentile, 70))
-
+        threshold_percentile = 0
 
         print(f"\033[1;32m\nfor llm: \033[1;34m{config['large_language_models'][llm_model_name]}\033[1;32m, Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, NER Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
         # process ANR
@@ -139,23 +143,17 @@ def Process_text(transcription_file, rttm_file, output_file, llm_model_name, Dat
         all_sentences_with_key_elements = anr.add_key_elements()
         # process chunks of paragraphs sized by max_token_size - max_token_output
         paragraphs = process_paragraph(key_sentences, llm, max_token_size, max_token_output)
-        full_transcription_paragraphs_with_key_elements = process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)
+        transcription = {'transcription': process_paragraph(all_sentences_with_key_elements, llm , max_token_size, max_token_output)}
 
         if total_token_size < max_token_size - max_token_output:
             llm_report = llm.summarize(all_sentences, verbose=verbose)
-            output = {'llm_report': llm_report, 'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
+
         else:
             # Generate the report with strategy [return MapReduce, Refine]  combined return -> MapReduce, Refine and combined and produce 3 reports
-            reports = llm.MapReduce(paragraphs, verbose=verbose)
-            if reports is None:
-                print("Failed to generate reports")
-                return
-            llm_report_MapReduce = reports
-            output = {'llm_report_MapReduce': llm_report_MapReduce,
-                    'details': full_transcription_paragraphs_with_key_elements, 'speaker_names': speaker_names}
+            llm_report = llm.MapReduce(paragraphs, verbose=verbose)
         print("\n-------------------------------end---------------------------------------------------\n")
-        with open(output_file, 'w') as f:
-            json.dump(output, f)
+        return llm_report, speaker_names, transcription
+
     else:
         with open('Utils/config/config.yaml', 'r') as f:
             config = yaml.safe_load(f)
@@ -172,8 +170,7 @@ def Process_text(transcription_file, rttm_file, output_file, llm_model_name, Dat
         # Calculate the threshold_percentile based on the total token size
         threshold_percentile = (total_token_size / (((max_token_size / max_token_output)-1)*(max_token_size-max_token_output))) * 10
         threshold_percentile = max(15, min(threshold_percentile, 70))
-
-
+        threshold_percentile = 0
         print(f"\033[1;32m\nBuilding dataset with llm: \033[1;34m{config['large_language_models']['gpt']}\033[1;32m, with config such as --> Total token size: \033[1;34m{total_token_size}\033[1;32m, Max Token size : \033[1;34m{max_token_size}\033[1;32m, Max token output: \033[1;34m{max_token_output}\033[1;32m, NER Threshold percentile: \033[1;34m{threshold_percentile}\033[1;32m\n\033[0m")
         # process ANR
         anr = ANR(all_sentences)

@@ -35,7 +35,7 @@ def preprocess_audio(file_path, build_dataset= False):
         preprocessed_file_path.parent.mkdir(parents=True, exist_ok=True)
         audio.export(preprocessed_file_path, format='wav')
     else:
-        preprocessed_file_path = file_path.replace('.mp3', '_preprocessed.wav')
+        preprocessed_file_path = Path(str(file_path).replace('.mp3', '_preprocessed.wav'))
         audio.export(preprocessed_file_path, format='wav')
 
     return preprocessed_file_path

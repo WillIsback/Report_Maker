@@ -6,34 +6,18 @@ class Prompts:
     @staticmethod
     def summarize_prompt(text):
         return [
-            {
-                "role": "user",
-                "content": f"""Vous avez plusieurs segments d'une transcription audio sur divers sujets.
-                                Votre tâche est de créer un rapport détaillé à partir de ces informations. Veuillez faire ce qui suit :
-                                - Organisez les sujets en chapitres distincts.
-                                - Fournissez une description détaillée pour chaque sujet, y compris ses points clés, ses implications, son contexte et ses perspectives.
-                                - Mettez en évidence les aspects uniques de chaque sujet et comment ils contribuent à leur domaine respectif.
-                                - Générez le texte dans un ton professionnel et formel, adapté à un rapport d'entreprise.
-                                - Formatez le texte en Markdown.
-                                Voici les résumés : \n\n{text}\n"""
-            },
-            {
-                "role": "assistant",
-                        "content": """# {Titre du Sujet}
-
-                                        ## Aperçu
-                                        {Brève description du sujet}
-
-                                        ## Points Clés
-                                        {Description détaillée des points clés du sujet}
-
-                                        ## Implications
-                                        {Explication des implications du sujet}
-
-                                        ## Contexte
-                                        {Description du contexte du sujet}
-                                                                            """
-            }]
+                {
+                    "role": "user",
+                    "content": f"""Vous avez plusieurs segments d'une transcription audio sur divers sujets.
+                                    Votre tâche est de créer un rapport détaillé à partir de ces informations. Veuillez faire ce qui suit :
+                                    - Organisez les sujets en chapitres distincts.
+                                    - Fournissez une description détaillée pour chaque sujet, y compris ses points clés, ses implications, son contexte et ses perspectives.
+                                    - Mettez en évidence les aspects uniques de chaque sujet et comment ils contribuent à leur domaine respectif.
+                                    - Générez le texte dans un ton professionnel et formel, adapté à un rapport d'entreprise.
+                                    - Formatez le texte en Markdown.
+                                    Voici les résumés : \n\n{text}\n"""
+                },
+            ]
 
     @staticmethod
     def MapReduce_final_prompt(text):
@@ -48,23 +32,6 @@ class Prompts:
                                         - Formatez le texte en Markdown.
                                         Voici les differents rapports détaillés : \n\n{text}\n"""
                     },
-                    {
-                        "role": "assistant",
-                        "content": """# {Titre du Sujet}
-
-                                        ## Aperçu
-                                        {Brève description du sujet}
-
-                                        ## Points Clés
-                                        {Description détaillée des points clés du sujet}
-
-                                        ## Implications
-                                        {Explication des implications du sujet}
-
-                                        ## Contexte
-                                        {Description du contexte du sujet}
-                                                                            """
-                    }
                 ]
 
     @staticmethod
@@ -82,23 +49,6 @@ class Prompts:
                                     - Affiné le rapport existant pour y ajouter les nouvelles informations ci-dessous:
                                     \n\n{new_text}\n"""
                 },
-                {
-                    "role": "assistant",
-                    "content": """# {Titre du Sujet}
-
-                                    ## Aperçu
-                                    {Brève description du sujet}
-
-                                    ## Points Clés
-                                    {Description détaillée des points clés du sujet}
-
-                                    ## Implications
-                                    {Explication des implications du sujet}
-
-                                    ## Contexte
-                                    {Description du contexte du sujet}
-                                                                        """
-                }
             ]
 
     @staticmethod
@@ -115,21 +65,5 @@ class Prompts:
                                             Voici le premier rapports : \n\n{MapReduce}\n\n
                                             Voici le deuxième rapports : \n\n{Refine}\n"""
                         },
-                        {
-                            "role": "assistant",
-                            "content": """# {Titre du Sujet}
 
-                                            ## Aperçu
-                                            {Brève description du sujet}
-
-                                            ## Points Clés
-                                            {Description détaillée des points clés du sujet}
-
-                                            ## Implications
-                                            {Explication des implications du sujet}
-
-                                            ## Contexte
-                                            {Description du contexte du sujet}
-                                                                                """
-                        }
             ]

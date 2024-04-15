@@ -5,7 +5,7 @@ import torch
 import torchaudio
 from pyannote.audio import Pipeline
 from pathlib import Path
-
+import gc
 # Suppress the UserWarning from torchaudio
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -28,7 +28,12 @@ class Pyannote:
                 # Ensure waveform is 2D tensor with shape (channel, time)
         if len(self.waveform.shape) == 1:
             self.waveform = self.waveform.unsqueeze(0)
-
+    def __delete__(self):
+        del self.pipeline
+        gc.collect()
+        torch.cuda.empty_cache()
+        del self.waveform
+        del self.sample_rate
     def diarization(self, DataSet_builder=False):
         # Perform speaker diarization
         print("\n-------------------------------------------------------------------------------------\n")
@@ -49,4 +54,6 @@ class Pyannote:
             # Write the processed transcription to a file
             with diarization_file_path.open('w') as f:
                 diarization.write_rttm(f)
+
+
         print("\n-------------------------------end---------------------------------------------------\n")

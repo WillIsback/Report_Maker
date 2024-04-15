@@ -4,5 +4,5 @@ audio_processing_models:
 
 large_language_models:
   gpt: gpt-3.5-turbo
-  gemma-7b: google/gemma-7b-it
-  gemma-2b: google/gemma-2b-it
+  fast-gemma: Labagaite/gemma-Summarizer-2b-it-LORA-bnb-4bit
+  gemma: Labagaite/gemma-Summarizer-2b-it
